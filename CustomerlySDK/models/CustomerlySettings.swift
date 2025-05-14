@@ -1,54 +1,53 @@
 import Foundation
 
-/// Configuration settings for the Customerly SDK
 public struct CustomerlySettings {
-    /// The app ID for your Customerly account
     public let app_id: String
-    
-    /// Optional user ID for the current user
     public var user_id: String?
-    
-    /// Optional name of the current user
     public var name: String?
-    
-    /// Optional email of the current user
     public var email: String?
-    
-    /// Optional email hash of the current user
     public var email_hash: String?
-    
-    /// Optional accent color for the messenger UI
     public var accentColor: String?
-    
-    /// Optional contrast color for the messenger UI
     public var contrastColor: String?
-    
-    /// Whether attachments are available in the messenger
     public var attachmentsAvailable: Bool?
-    
-    /// Whether to force single conversation mode
     public var singleConversation: Bool?
-    
-    /// Optional last page viewed by the user
     public var last_page_viewed: String?
-    
-    /// Whether to force lead generation
     public var force_lead: Bool?
-    
-    /// Optional user attributes
     public var attributes: [String: Any]?
-    
-    /// Optional company information
     public var company: Company?
-    
-    /// Optional user events
     public var events: [Event]?
     
-    public init(app_id: String) {
+    public init(
+        app_id: String,
+        user_id: String? = nil,
+        name: String? = nil,
+        email: String? = nil,
+        email_hash: String? = nil,
+        accentColor: String? = nil,
+        contrastColor: String? = nil,
+        attachmentsAvailable: Bool? = nil,
+        singleConversation: Bool? = nil,
+        last_page_viewed: String? = nil,
+        force_lead: Bool? = nil,
+        attributes: [String: Any]? = nil,
+        company: Company? = nil,
+        events: [Event]? = nil
+    ) {
         self.app_id = app_id
+        self.user_id = user_id
+        self.name = name
+        self.email = email
+        self.email_hash = email_hash
+        self.accentColor = accentColor
+        self.contrastColor = contrastColor
+        self.attachmentsAvailable = attachmentsAvailable
+        self.singleConversation = singleConversation
+        self.last_page_viewed = last_page_viewed
+        self.force_lead = force_lead
+        self.attributes = attributes
+        self.company = company
+        self.events = events
     }
     
-    /// Dictionary representation of the settings
     var dictionary: [String: Any] {
         var dict: [String: Any] = [
             "app_id": app_id,
@@ -73,15 +72,9 @@ public struct CustomerlySettings {
     }
 }
 
-/// Company information for the current user
 public struct Company {
-    /// The company ID
     public let company_id: String
-    
-    /// The company name
     public let name: String
-    
-    /// Additional company attributes
     public var additionalAttributes: [String: Any]
     
     public init(company_id: String, name: String, additionalAttributes: [String: Any] = [:]) {
@@ -90,7 +83,6 @@ public struct Company {
         self.additionalAttributes = additionalAttributes
     }
     
-    /// Dictionary representation of the company
     var dictionary: [String: Any] {
         var dict: [String: Any] = [
             "company_id": company_id,
@@ -103,12 +95,8 @@ public struct Company {
     }
 }
 
-/// User event information
 public struct Event {
-    /// The event name
     public let name: String
-    
-    /// Optional event date
     public var date: Date?
     
     public init(name: String, date: Date? = nil) {
@@ -116,10 +104,9 @@ public struct Event {
         self.date = date
     }
     
-    /// Dictionary representation of the event
     var dictionary: [String: Any] {
         var dict: [String: Any] = ["name": name]
         date.map { dict["date"] = $0.timeIntervalSince1970 }
         return dict
     }
-} 
+}

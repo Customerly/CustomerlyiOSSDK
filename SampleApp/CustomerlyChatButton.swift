@@ -7,18 +7,18 @@ struct CustomerlyChatButton: View {
     var body: some View {
         Button("Open Messenger") {
             print("Customerly: Button tapped")
-            if let rootVC = window?.rootViewController {
-                print("Customerly: Showing messenger...")
-                Customerly.shared.show(on: rootVC)
-            } else {
-                print("Customerly: Error - No root view controller found")
-            }
+            Customerly.shared.show()
         }
         .onAppear() {
             print("Customerly: Initializing SDK...")
-            let settings = CustomerlySettings(app_id: "936fd1dc")
-            Customerly.shared.load(settings: settings)
-            Customerly.shared.requestNotificationPermissionIfNeeded()
+            // FIXME
+            if let rootVC = window?.rootViewController {
+                let settings = CustomerlySettings(app_id: "936fd1dc")
+                Customerly.shared.load(parent: rootVC, settings: settings)
+                Customerly.shared.requestNotificationPermissionIfNeeded()
+            } else {
+                print("Customerly: Error - No root view controller found")
+            }
         }
         .padding()
     }
