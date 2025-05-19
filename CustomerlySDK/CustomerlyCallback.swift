@@ -1,60 +1,25 @@
 import Foundation
 
-/// Protocol for handling Customerly SDK events
 public protocol CustomerlyCallback {
-    /// Called when the messenger is initialized
     func onMessengerInitialized()
-    
-    /// Called when the chat is closed
     func onChatClosed()
-    
-    /// Called when the chat is opened
     func onChatOpened()
-    
-    /// Called when a help center article is opened
     func onHelpCenterArticleOpened(article: HelpCenterArticle)
-    
-    /// Called when a lead is generated
     func onLeadGenerated(email: String?)
-    
-    /// Called when a new message is received
     func onNewMessageReceived(accountId: Int, message: String, timestamp: TimeInterval, userId: Int, conversationId: Int)
-    
-    /// Called when a new conversation is created
     func onNewConversation(message: String, attachments: [AttachmentPayload])
-    
-    /// Called when a new conversation is received
     func onNewConversationReceived(conversationId: Int)
-    
-    /// Called when a profiling question is answered
     func onProfilingQuestionAnswered(attribute: String, value: String)
-    
-    /// Called when a profiling question is asked
     func onProfilingQuestionAsked(attribute: String)
-    
-    /// Called when a realtime video call is answered
     func onRealtimeVideoAnswered(call: RealtimeCall)
-    
-    /// Called when a realtime video call is canceled
     func onRealtimeVideoCanceled()
-    
-    /// Called when a realtime video call is received
     func onRealtimeVideoReceived(call: RealtimeCall)
-    
-    /// Called when a realtime video call is rejected
     func onRealtimeVideoRejected()
-    
-    /// Called when a survey is answered
     func onSurveyAnswered()
-    
-    /// Called when a survey is presented
     func onSurveyPresented(survey: Survey)
-    
-    /// Called when a survey is rejected
     func onSurveyRejected()
 }
 
-// Default implementations to make all methods optional
 public extension CustomerlyCallback {
     func onMessengerInitialized() {}
     func onChatClosed() {}
@@ -75,7 +40,6 @@ public extension CustomerlyCallback {
     func onSurveyRejected() {}
 }
 
-/// Generic callback wrapper that implements CustomerlyCallback
 public class CallbackWrapper: CustomerlyCallback {
     private let callback: Any
 

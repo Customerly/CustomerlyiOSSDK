@@ -2,28 +2,19 @@ import UIKit
 import WebKit
 import UserNotifications
 
-/// Main entry point for the Customerly SDK
 public class Customerly: NSObject {
     /// Shared singleton instance
     public static let shared = Customerly()
 
-    /// Preloaded WKWebView instance
     private var webView: WKWebView?
-
-    /// Container view controller presenting the messenger
+    // Container view controller presenting the messenger
     private var controller: UIViewController?
-    
-    /// Parent view controller for presenting the messenger
+    // Parent view controller for presenting the messenger
     private weak var parentViewController: UIViewController?
-
-    /// Settings for the SDK
     private var settings: CustomerlySettings?
-
-    /// Callback handler for various events
-    private var callback: CustomerlyCallback?
-
-    /// Dictionary to store callbacks by type
     private var callbacks: [String: CustomerlyCallback] = [:]
+    private var isPresenting: Bool = false
+    private var webViewBottomConstraint: NSLayoutConstraint?
 
     private override init() {
         super.init()
@@ -37,6 +28,8 @@ public class Customerly: NSObject {
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillShowNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
     }
 
     @objc private func applicationWillTerminate() {
@@ -77,12 +70,6 @@ public class Customerly: NSObject {
     /// - Parameter parent: The new view controller from which to present the messenger modally
     public func setParent(_ parent: UIViewController) {
         self.parentViewController = parent
-    }
-
-    /// Sets the callback handler for SDK events
-    /// - Parameter callback: The callback handler to receive events
-    public func setCallback(_ callback: CustomerlyCallback) {
-        self.callback = callback
     }
 
     /// Requests notification permissions if needed
@@ -240,30 +227,21 @@ public class Customerly: NSObject {
         }
     }
 
-    private func evaluateJavascript(_ script: String, safe: Bool = false, resultCallback: ((Any?, Error?) -> Void)? = nil) {
+    private func evaluateJavascript(_ script: String, resultCallback: ((Any?, Error?) -> Void)? = nil) {
         guard let webView = webView else {
             print("Customerly: Error - WebView not loaded")
             return
         }
 
-        if safe {
-            DispatchQueue.main.async {
-                webView.evaluateJavaScript(script) { result, error in
-                    resultCallback?(result, error)
-                }
-            }
-        } else {
-            webView.evaluateJavaScript(script) { result, error in
-                resultCallback?(result, error)
-            }
+        webView.evaluateJavaScript(script) { result, error in
+            resultCallback?(result, error)
         }
     }
 
     /// Presents the messenger by showing the preloaded WebView
     /// - Parameters:
-    ///   - withoutNavigation: Whether to show without navigation controls
-    ///   - safe: Whether to show in a safe way (handling edge cases)
-    public func show(withoutNavigation: Bool = false, safe: Bool = false) {
+    ///   - withoutNavigation: Whether to navigate to messenger home page
+    public func show(withoutNavigation: Bool = false) {
         guard let wv = webView else {
             print("Customerly: Error - WebView not loaded")
             assertionFailure("Messenger not loaded. Call load() first.")
@@ -275,6 +253,13 @@ public class Customerly: NSObject {
             assertionFailure("No parent view controller set. Call load() or setParent() first.")
             return
         }
+
+        if self.controller != nil || self.isPresenting {
+            print("Customerly: Messenger is already presented or being presented.")
+            return
+        }
+
+        self.isPresenting = true
 
         let containerVC = UIViewController()
         containerVC.view.backgroundColor = .white
@@ -295,38 +280,62 @@ public class Customerly: NSObject {
         containerView.addSubview(wv)
 
         if #available(iOS 11.0, *) {
+            let bottomConstraint = wv.bottomAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.bottomAnchor)
             NSLayoutConstraint.activate([
                 wv.topAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.topAnchor),
                 wv.leadingAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.leadingAnchor),
                 wv.trailingAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.trailingAnchor),
-                wv.bottomAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.bottomAnchor)
+                bottomConstraint
             ])
+            self.webViewBottomConstraint = bottomConstraint
         } else {
+            let bottomConstraint = wv.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
             NSLayoutConstraint.activate([
                 wv.topAnchor.constraint(equalTo: containerView.topAnchor),
                 wv.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
                 wv.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
-                wv.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
+                bottomConstraint
             ])
+            self.webViewBottomConstraint = bottomConstraint
         }
 
         wv.isHidden = false
         
-        self.evaluateJavascript("customerly.open()", safe: safe)
+        // Register for keyboard notifications
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(_:)), name: UIResponder.keyboardWillShowNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
+        
+        self.evaluateJavascript("customerly.open()")
         if !withoutNavigation {
-            self.evaluateJavascript("_customerly_sdk.navigate('/', true)", safe: safe)
+            self.evaluateJavascript("_customerly_sdk.navigate('/', true)")
         }
+
+        containerVC.presentationController?.delegate = self
 
         parent.present(containerVC, animated: true) {
             self.controller = containerVC
+            self.isPresenting = false
         }
+    }
+
+    private func afterHide(withBack: Bool = false) {
+        if withBack {
+            self.back()
+        }
+
+        self.controller = nil
+        self.webView?.isHidden = true
+        self.isPresenting = false
+
+        // Remove keyboard observers
+        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillShowNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
     }
 
     /// Hides the messenger
     public func hide() {
         controller?.dismiss(animated: true) {
-            self.controller = nil
-            self.webView?.isHidden = true
+            self.afterHide()
         }
     }
 
@@ -375,14 +384,14 @@ public class Customerly: NSObject {
     }
 
     /// Shows the messenger with a new message
-    /// - Parameter message: The message to show
+    /// - Parameter message: The new message to prepopulate in the messenger
     public func showNewMessage(message: String) {
         show()
         evaluateJavascript("customerly.showNewMessage('\(message)')")
     }
 
     /// Sends a new message
-    /// - Parameter message: The message to send
+    /// - Parameter message: The new message to send
     public func sendNewMessage(message: String) {
         show()
         evaluateJavascript("customerly.sendNewMessage('\(message)')")
@@ -664,6 +673,64 @@ public class Customerly: NSObject {
         
         callbacks.removeAll()
     }
+
+    private func abstractify(_ html: String?) -> String {
+        guard let html = html, !html.isEmpty else {
+            return "📎 Attachment"
+        }
+
+        // Decode HTML entities and strip tags
+        let decoded: String
+        if let data = html.data(using: .utf8),
+           let attributed = try? NSAttributedString(
+                data: data,
+                options: [.documentType: NSAttributedString.DocumentType.html,
+                          .characterEncoding: String.Encoding.utf8.rawValue],
+                documentAttributes: nil) {
+            decoded = attributed.string
+        } else {
+            decoded = html
+        }
+
+        let trimmed = decoded.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression).trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if trimmed.isEmpty {
+            return "🖼 Image"
+        }
+
+        if trimmed.count > 100 {
+            let index = trimmed.index(trimmed.startIndex, offsetBy: 100)
+            return "\(trimmed[..<index])..."
+        } else {
+            return trimmed
+        }
+    }
+
+    @objc private func keyboardWillShow(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let keyboardFrame = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
+              let duration = userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double,
+              let curve = userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt else { return }
+
+        let keyboardHeight = keyboardFrame.height
+        self.webViewBottomConstraint?.constant = -keyboardHeight
+
+        UIView.animate(withDuration: duration, delay: 0, options: UIView.AnimationOptions(rawValue: curve << 16), animations: {
+            self.controller?.view.layoutIfNeeded()
+        }, completion: nil)
+    }
+
+    @objc private func keyboardWillHide(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let duration = userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double,
+              let curve = userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt else { return }
+
+        self.webViewBottomConstraint?.constant = 0
+
+        UIView.animate(withDuration: duration, delay: 0, options: UIView.AnimationOptions(rawValue: curve << 16), animations: {
+            self.controller?.view.layoutIfNeeded()
+        }, completion: nil)
+    }
 }
 
 extension Customerly: WKScriptMessageHandler {
@@ -726,12 +793,27 @@ extension Customerly: WKScriptMessageHandler {
                       let conversationId = data["conversationId"] as? Int else {
                     return
                 }
-                
-                // Generate notification ID from conversationId and timestamp
-                let notificationId = Int(conversationId + Int(timestamp))
-                // TODO: Implement notifications logic
-                // showNotification(message: message, notificationId: notificationId, conversationId: conversationId)
-                
+
+                // Show system local notification
+                let content = UNMutableNotificationContent()
+                content.title = "New Message"
+                let abstractedMessage = abstractify(message)
+                content.body = abstractedMessage
+                content.sound = .default
+                content.userInfo = [
+                    "conversationId": conversationId,
+                    "accountId": accountId,
+                    "userId": userId,
+                    "timestamp": timestamp,
+                    "message": message
+                ]
+                let request = UNNotificationRequest(
+                    identifier: "customerly_new_message_\(conversationId)_\(timestamp)",
+                    content: content,
+                    trigger: nil // deliver immediately
+                )
+                UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
+
                 callbacks[type]?.onNewMessageReceived(accountId: accountId,
                                                    message: message,
                                                    timestamp: timestamp,
@@ -763,7 +845,7 @@ extension Customerly: WKScriptMessageHandler {
                 callbacks[type]?.onRealtimeVideoCanceled()
                 
             case "onRealtimeVideoReceived":
-                show(safe: true)
+                show()
                 guard let data = messageData,
                       let call = try? RealtimeCall(from: data) else { return }
                 callbacks[type]?.onRealtimeVideoReceived(call: call)
@@ -775,7 +857,7 @@ extension Customerly: WKScriptMessageHandler {
                 callbacks[type]?.onSurveyAnswered()
                 
             case "onSurveyPresented":
-                show(withoutNavigation: true, safe: true)
+                show(withoutNavigation: true)
                 guard let data = messageData,
                       let survey = try? Survey(from: data) else { return }
                 callbacks[type]?.onSurveyPresented(survey: survey)
@@ -803,5 +885,11 @@ extension Customerly: WKNavigationDelegate {
 
     public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         print("Customerly: WebView provisional navigation failed: \(error)")
+    }
+}
+
+extension Customerly: UIAdaptivePresentationControllerDelegate {
+    public func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        self.afterHide(withBack: true)
     }
 }
