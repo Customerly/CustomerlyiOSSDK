@@ -6,19 +6,16 @@ struct CustomerlyChatButton: View {
     @Environment(\.window) var window
     var body: some View {
         Button("Open Messenger") {
-            print("Customerly: Button tapped")
-            Customerly.shared.show()
-        }
-        .onAppear() {
-            print("Customerly: Initializing SDK...")
             // FIXME
             if let rootVC = window?.rootViewController {
                 let settings = CustomerlySettings(app_id: "936fd1dc")
-                Customerly.shared.load(parent: rootVC, settings: settings)
+                Customerly.shared.load(settings: settings)
+                Customerly.shared.setParent(rootVC)
                 Customerly.shared.requestNotificationPermissionIfNeeded()
             } else {
                 print("Customerly: Error - No root view controller found")
             }
+            Customerly.shared.show()
         }
         .padding()
     }

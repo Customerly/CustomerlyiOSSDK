@@ -45,9 +45,9 @@ public class Customerly: NSObject {
 
     /// Loads and initializes the SDK with the provided settings
     /// - Parameters:
-    ///   - parent: The view controller from which to present the messenger modally
     ///   - settings: Configuration settings for the SDK
-    public func load(parent: UIViewController, settings: CustomerlySettings) {
+    ///   - parent: The view controller from which to present the messenger modally
+    public func load(settings: CustomerlySettings, parent: UIViewController? = nil) {
         guard webView == nil else {
             return
         }
@@ -55,12 +55,10 @@ public class Customerly: NSObject {
         self.settings = settings
         self.parentViewController = parent
 
-        // Configure WKWebView with message handler
         let config = WKWebViewConfiguration()
         let userContent = config.userContentController
         userContent.add(self, name: "customerlyNative")
 
-        // Initialize and load the messenger
         let wv = WKWebView(frame: .zero, configuration: config)
         wv.navigationDelegate = self
         wv.isHidden = true
@@ -69,13 +67,9 @@ public class Customerly: NSObject {
         wv.scrollView.isScrollEnabled = false
         wv.scrollView.bounces = false
 
-        // Keep reference
         self.webView = wv
 
-        // Load saved cookies
         loadCookies()
-
-        // Load the messenger HTML
         loadMessengerHTML()
     }
     
@@ -282,17 +276,14 @@ public class Customerly: NSObject {
             return
         }
 
-        // Create a container view controller
         let containerVC = UIViewController()
         containerVC.view.backgroundColor = .white
 
-        // Create a container view for the WebView
         let containerView = UIView()
         containerView.backgroundColor = .white
         containerView.translatesAutoresizingMaskIntoConstraints = false
         containerVC.view.addSubview(containerView)
 
-        // Add constraints to make the container view fill the screen
         NSLayoutConstraint.activate([
             containerView.topAnchor.constraint(equalTo: containerVC.view.topAnchor),
             containerView.leadingAnchor.constraint(equalTo: containerVC.view.leadingAnchor),
@@ -300,11 +291,9 @@ public class Customerly: NSObject {
             containerView.bottomAnchor.constraint(equalTo: containerVC.view.bottomAnchor)
         ])
 
-        // Add the WebView to the container view
         wv.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(wv)
 
-        // Add constraints to make the WebView fill the container view
         if #available(iOS 11.0, *) {
             NSLayoutConstraint.activate([
                 wv.topAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.topAnchor),
@@ -321,18 +310,13 @@ public class Customerly: NSObject {
             ])
         }
 
-        // Show the WebView
         wv.isHidden = false
         
-        // Evaluate JavaScript to open the messenger
         self.evaluateJavascript("customerly.open()", safe: safe)
-            
-        // Navigate to root if navigation is enabled
         if !withoutNavigation {
             self.evaluateJavascript("_customerly_sdk.navigate('/', true)", safe: safe)
         }
 
-        // Present the container view controller
         parent.present(containerVC, animated: true) {
             self.controller = containerVC
         }
