@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "CustomerlySDK",
+    name: "Customerly",
     platforms: [
         .iOS(.v13)
     ],
     products: [
-        .library(name: "CustomerlySDK", targets: ["CustomerlySDK"])
+        .library(name: "Customerly", targets: ["CustomerlySDK"])
     ],
     targets: [
         .target(

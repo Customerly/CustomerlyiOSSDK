@@ -1,5 +1,8 @@
 # Customerly iOS SDK
 
+[![SPM compatible](https://img.shields.io/badge/SPM-compatible-brightgreen.svg)]()
+[![CocoaPods](https://img.shields.io/cocoapods/v/Customerly.svg)]()
+
 Customerly is a customer service platform that helps businesses provide better support to their customers. The iOS SDK allows you to integrate Customerly's features directly into your iOS application, including:
 
 - Live chat support
@@ -27,7 +30,7 @@ dependencies: [
 Add the following line to your Podfile:
 
 ```ruby
-pod 'CustomerlySDK'
+pod 'Customerly'
 ```
 
 Then run:
