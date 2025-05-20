@@ -1,0 +1,89 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*.*.*'
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      - name: Install dependencies
+        run: |
+          gem install cocoapods
+          gem install cocoapods-trunk
+
+      - name: Extract version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Get default branch
+        id: get_branch
+        run: |
+          DEFAULT_BRANCH=$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f5)
+          echo "DEFAULT_BRANCH=$DEFAULT_BRANCH" >> $GITHUB_ENV
+
+      - name: Check versions
+        id: check_versions
+        run: |
+          PODSPEC_VERSION=$(grep "^[[:space:]]*s.version[[:space:]]*=" Customerly.podspec | sed -E 's/.*= *"([0-9]+\.[0-9]+\.[0-9]+)".*/\1/')
+          README_VERSION=$(grep "from:" README.md | sed -E 's/.*from: "([0-9]+\.[0-9]+\.[0-9]+)".*/\1/')
+          
+          echo "Tag version: $VERSION"
+          echo "Podspec version: $PODSPEC_VERSION"
+          echo "README version: $README_VERSION"
+          
+          if [ "$PODSPEC_VERSION" != "$VERSION" ] || [ "$README_VERSION" != "$VERSION" ]; then
+            echo "versions_mismatch=true" >> $GITHUB_OUTPUT
+            echo "podspec_version=$PODSPEC_VERSION" >> $GITHUB_OUTPUT
+            echo "readme_version=$README_VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "versions_mismatch=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update versions and commit
+        if: steps.check_versions.outputs.versions_mismatch == 'true'
+        run: |
+          # Checkout default branch
+          git checkout $DEFAULT_BRANCH
+          
+          # Update podspec
+          sed -i '' "s/^[[:space:]]*s.version[[:space:]]*=.*/s.version = '$VERSION'/" Customerly.podspec
+          
+          # Update README
+          sed -i '' "s/from: \"[0-9]*\.[0-9]*\.[0-9]*\"/from: \"$VERSION\"/" README.md
+          
+          # Commit and push changes
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add Customerly.podspec README.md
+          git commit -m "chore: bump version to $VERSION"
+          git push origin $DEFAULT_BRANCH
+          
+          # Move tag to new commit
+          git tag -d $VERSION
+          git tag $VERSION
+          git push origin :refs/tags/$VERSION --force
+          git push origin $VERSION --force
+          
+          echo "Versions updated and tag moved. Please run the workflow again."
+          exit 1
+
+      - name: Release pod
+        if: steps.check_versions.outputs.versions_mismatch == 'false'
+        env:
+          COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
+        run: |
+          pod trunk push Customerly.podspec --allow-warnings
