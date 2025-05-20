@@ -1,9 +1,9 @@
 Pod::Spec.new do |s|
-  s.name         = "CustomerlySDK"
+  s.name         = "Customerly"
   s.version      = "1.0.0"
   s.summary      = "SDK for integrating Customerly in iOS apps"
   s.description  = <<-DESC
-    CustomerlySDK allows iOS apps to easily integrate Customerly's support chat widget using a native wrapper.
+    This SDK allows iOS apps to easily integrate Customerly's support chat widget using a native wrapper.
   DESC
   s.homepage     = "https://github.com/customerly/CustomerlyiOSSDK"
   s.license      = { :type => "GNU General Public License v3.0", :file => "LICENSE" }
