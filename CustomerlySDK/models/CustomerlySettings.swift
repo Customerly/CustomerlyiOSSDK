@@ -51,7 +51,8 @@ public struct CustomerlySettings {
     var dictionary: [String: Any] {
         var dict: [String: Any] = [
             "app_id": app_id,
-            "sdkMode": true
+            "sdkMode": true,
+            "disableAutofocus": true
         ]
         
         user_id.map { dict["user_id"] = $0 }
