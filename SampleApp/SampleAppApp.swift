@@ -50,7 +50,7 @@ struct SampleAppApp: App {
                         
                         Button("Login User") {
                             let settings = CustomerlySettings(
-                                app_id: "936fd1dc",
+                                app_id: "YOUR_APP_ID",
                                 user_id: "123",
                                 name: "Giorgio",
                                 email: "gb@customerly.io",
@@ -111,7 +111,7 @@ struct SampleAppApp: App {
                     .padding()
                 }
                 
-                CustomerlyView(settings: CustomerlySettings(app_id: "936fd1dc")).onAppear(){
+                CustomerlyView(settings: CustomerlySettings(app_id: "YOUR_APP_ID")).onAppear(){
                     Customerly.shared.requestNotificationPermissionIfNeeded()
                     Customerly.shared.setOnMessengerInitialized {
                         Customerly.shared.getUnreadMessagesCount { count in

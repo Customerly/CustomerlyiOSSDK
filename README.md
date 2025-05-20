@@ -58,7 +58,7 @@ struct SampleAppApp: App {
             ZStack {
                 // Your app content here
 
-                CustomerlyView(settings: CustomerlySettings(app_id: "936fd1dc")).onAppear(){
+                CustomerlyView(settings: CustomerlySettings(app_id: "YOUR_APP_ID")).onAppear(){
                     Customerly.shared.requestNotificationPermissionIfNeeded()
                 }
             }
