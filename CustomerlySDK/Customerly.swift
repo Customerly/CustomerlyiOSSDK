@@ -886,6 +886,22 @@ extension Customerly: WKNavigationDelegate {
     public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         print("Customerly: WebView provisional navigation failed: \(error)")
     }
+    
+    public func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        let request = navigationAction.request
+        if let url = request.url {
+            if url.absoluteString == "https://customerly.io/" || request.mainDocumentURL?.absoluteString == "https://customerly.io/" {
+                decisionHandler(.allow)
+                return
+            }
+            
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            decisionHandler(.cancel)
+            return
+        }
+        
+        decisionHandler(.allow)
+    }
 }
 
 extension Customerly: UIAdaptivePresentationControllerDelegate {
