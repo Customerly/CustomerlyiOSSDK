@@ -2,6 +2,7 @@
 
 [![SPM compatible](https://img.shields.io/badge/SPM-compatible-brightgreen.svg)]()
 [![CocoaPods](https://img.shields.io/cocoapods/v/Customerly.svg)]()
+![GitHub License](https://img.shields.io/github/license/Customerly/CustomerlyiOSSDK)
 
 Customerly is a customer service platform that helps businesses provide better support to their customers. The iOS SDK allows you to integrate Customerly's features directly into your iOS application, including:
 
@@ -115,68 +116,140 @@ struct SampleAppApp: App {
 
 ### Initialization and Configuration
 
-#### `load(settings: CustomerlySettings, parent: UIViewController? = nil)`
+#### load
 Initializes the Customerly SDK with the provided settings.
 
-#### `setParent(_ parent: UIViewController)`
+```swift
+Customerly.shared.load(settings: CustomerlySettings(app_id: "YOUR_APP_ID"), parent: self)
+```
+
+#### setParent
 Sets a new parent view controller for presenting the messenger.
 
-#### `update(settings: CustomerlySettings)`
+```swift
+Customerly.shared.setParent(self)
+```
+
+#### update
 Updates the Customerly SDK settings.
 
-#### `requestNotificationPermissionIfNeeded()`
+```swift
+Customerly.shared.update(settings: CustomerlySettings(app_id: "YOUR_APP_ID"))
+```
+
+#### requestNotificationPermissionIfNeeded
 Requests notification permissions if not already granted.
+
+```swift
+Customerly.shared.requestNotificationPermissionIfNeeded()
+```
 
 ### Messenger Control
 
-#### `show(withoutNavigation: Bool = false)`
+#### show
 Shows the Customerly chat interface.
 
-#### `hide()`
+```swift
+Customerly.shared.show(withoutNavigation: false)
+```
+
+#### hide
 Hides the Customerly chat interface.
 
-#### `back()`
+```swift
+Customerly.shared.hide()
+```
+
+#### back
 Navigates back in the chat interface.
+
+```swift
+Customerly.shared.back()
+```
 
 ### User Management
 
-#### `logout()`
+#### logout
 Logs out the current user.
 
-#### `registerLead(email: String, attributes: [String: String]? = nil)`
+```swift
+Customerly.shared.logout()
+```
+
+#### registerLead
 Registers a new lead with the provided email and optional attributes.
+
+```swift
+Customerly.shared.registerLead(email: "test@example.com", attributes: ["name": "John Doe"])
+```
 
 ### Messaging
 
-#### `showNewMessage(message: String)`
+#### showNewMessage
 Shows the chat interface with a pre-filled message.
 
-#### `sendNewMessage(message: String)`
+```swift
+Customerly.shared.showNewMessage(message: "Hello, how can I help you?")
+```
+
+#### sendNewMessage
 Sends a new message and shows the chat interface.
 
-#### `navigateToConversation(conversationId: Int)`
+```swift
+Customerly.shared.sendNewMessage(message: "Hello, how can I help you?")
+```
+
+#### navigateToConversation
 Navigates to a specific conversation.
+
+```swift
+Customerly.shared.navigateToConversation(conversationId: 123)
+```
 
 ### Help Center
 
-#### `showArticle(collectionSlug: String, articleSlug: String)`
+#### showArticle
 Shows a specific help center article.
+
+```swift
+Customerly.shared.showArticle(collectionSlug: "collection", articleSlug: "article")
+```
 
 ### Analytics
 
-#### `event(name: String)`
+#### event
 Tracks a custom event.
 
-#### `attribute(name: String, value: Any)`
+```swift
+Customerly.shared.event(name: "event_name")
+```
+
+#### attribute
 Sets a custom attribute for the current user.
+
+```swift
+Customerly.shared.attribute(name: "attribute_name", value: "attribute_value")
+```
 
 ### Message Counts
 
-#### `getUnreadMessagesCount(completion: @escaping (Int) -> Void)`
+#### getUnreadMessagesCount
 Gets the count of unread messages.
 
-#### `getUnreadConversationsCount(completion: @escaping (Int) -> Void)`
+```swift
+Customerly.shared.getUnreadMessagesCount(completion: { count in
+    print("Unread messages count: \(count)")
+})
+```
+
+#### getUnreadConversationsCount
 Gets the count of unread conversations.
+
+```swift
+Customerly.shared.getUnreadConversationsCount(completion: { count in
+    print("Unread conversations count: \(count)")
+})
+```
 
 ### Callbacks
 
@@ -216,7 +289,7 @@ You can also remove all callbacks at once:
 func removeAllCallbacks()
 ```
 
-## Example Project
+## Examples
 
 The repository includes a sample project (`SampleApp`) that demonstrates how to integrate and use the Customerly SDK in a SwiftUI application. The example shows:
 
