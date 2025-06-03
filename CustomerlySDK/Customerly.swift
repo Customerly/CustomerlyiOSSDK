@@ -796,9 +796,8 @@ extension Customerly: WKScriptMessageHandler {
 
                 // Show system local notification
                 let content = UNMutableNotificationContent()
-                content.title = "New Message"
                 let abstractedMessage = abstractify(message)
-                content.body = abstractedMessage
+                content.title = abstractedMessage
                 content.sound = .default
                 content.userInfo = [
                     "conversationId": conversationId,
