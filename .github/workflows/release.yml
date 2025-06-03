@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - '*.*.*'
+  workflow_dispatch:
 
 jobs:
   release:
@@ -60,7 +61,7 @@ jobs:
           git checkout $DEFAULT_BRANCH
           
           # Update podspec
-          sed -i '' "s/^[[:space:]]*s.version[[:space:]]*=.*/s.version = '$VERSION'/" Customerly.podspec
+          sed -i '' "s/^\([[:space:]]*\)s.version[[:space:]]*=.*/\1s.version = \"$VERSION\"/" Customerly.podspec
           
           # Update README
           sed -i '' "s/from: \"[0-9]*\.[0-9]*\.[0-9]*\"/from: \"$VERSION\"/" README.md
@@ -78,7 +79,7 @@ jobs:
           git push origin :refs/tags/$VERSION --force
           git push origin $VERSION --force
           
-          echo "Versions updated and tag moved. Please run the workflow again."
+          echo "Versions updated and tag moved. Please run the workflow manually."
           exit 1
 
       - name: Release pod
