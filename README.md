@@ -1,3 +1,7 @@
+<a href="https://customerly.io" target="_blank">
+    <img src="https://avatars1.githubusercontent.com/u/23583405?s=200&v=4" height="100" alt="Customerly logo">
+</a>
+
 # Customerly iOS SDK
 
 [![SPM compatible](https://img.shields.io/badge/SPM-compatible-brightgreen.svg)]()
