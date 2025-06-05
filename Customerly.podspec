@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name         = "Customerly"
-  s.version      = "1.0.1"
+  s.version      = "1.0.2"
   s.summary      = "SDK for integrating Customerly in iOS apps"
   s.description  = <<-DESC
     This SDK allows iOS apps to easily integrate Customerly's support chat widget using a native wrapper.

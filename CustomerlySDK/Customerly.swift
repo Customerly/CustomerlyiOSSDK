@@ -509,7 +509,7 @@ public class Customerly: NSObject {
 
     /// Sets a callback for when a new message is received
     /// - Parameter callback: The callback to handle the event
-    public func setOnNewMessageReceived(_ callback: @escaping (Int, String, TimeInterval, Int, Int) -> Void) {
+    public func setOnNewMessageReceived(_ callback: @escaping (Int?, String?, TimeInterval, Int?, Int) -> Void) {
         registerCallback(type: "onNewMessageReceived", callback: CallbackWrapper(callback))
     }
 
