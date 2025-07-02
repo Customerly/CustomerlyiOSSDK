@@ -26,7 +26,7 @@ Add the following dependency to your `Package.swift` file:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/customerly/CustomerlyiOSSDK.git", from: "1.0.2")
+    .package(url: "https://github.com/customerly/CustomerlyiOSSDK.git", from: "1.0.3")
 ]
 ```
 
@@ -264,6 +264,7 @@ func setOnChatClosed(_ callback: @escaping () -> Void)
 func setOnChatOpened(_ callback: @escaping () -> Void)
 func setOnHelpCenterArticleOpened(_ callback: @escaping (HelpCenterArticle) -> Void)
 func setOnLeadGenerated(_ callback: @escaping (String?) -> Void)
+func setOnMessageRead(_ callback: @escaping (Int, Int) -> Void)
 func setOnMessengerInitialized(_ callback: @escaping () -> Void)
 func setOnNewConversation(_ callback: @escaping (String, [AttachmentPayload]) -> Void)
 func setOnNewMessageReceived(_ callback: @escaping (Int?, String?, TimeInterval, Int?, Int) -> Void)

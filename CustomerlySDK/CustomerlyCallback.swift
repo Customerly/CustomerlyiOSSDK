@@ -1,11 +1,12 @@
 import Foundation
 
 public protocol CustomerlyCallback {
-    func onMessengerInitialized()
     func onChatClosed()
     func onChatOpened()
     func onHelpCenterArticleOpened(article: HelpCenterArticle)
     func onLeadGenerated(email: String?)
+    func onMessageRead(conversationId: Int, conversationMessageId: Int)
+    func onMessengerInitialized()
     func onNewMessageReceived(accountId: Int?, message: String?, timestamp: TimeInterval, userId: Int?, conversationId: Int)
     func onNewConversation(message: String, attachments: [AttachmentPayload])
     func onNewConversationReceived(conversationId: Int)
@@ -21,11 +22,12 @@ public protocol CustomerlyCallback {
 }
 
 public extension CustomerlyCallback {
-    func onMessengerInitialized() {}
     func onChatClosed() {}
     func onChatOpened() {}
     func onHelpCenterArticleOpened(article: HelpCenterArticle) {}
     func onLeadGenerated(email: String?) {}
+    func onMessageRead(conversationId: Int, conversationMessageId: Int) {}
+    func onMessengerInitialized() {}
     func onNewMessageReceived(accountId: Int?, message: String?, timestamp: TimeInterval, userId: Int?, conversationId: Int) {}
     func onNewConversation(message: String, attachments: [AttachmentPayload]) {}
     func onNewConversationReceived(conversationId: Int) {}
@@ -47,11 +49,12 @@ public class CallbackWrapper: CustomerlyCallback {
         self.callback = callback
     }
 
-    public func onMessengerInitialized() { (callback as? () -> Void)?() }
     public func onChatClosed() { (callback as? () -> Void)?() }
     public func onChatOpened() { (callback as? () -> Void)?() }
     public func onHelpCenterArticleOpened(article: HelpCenterArticle) { (callback as? (HelpCenterArticle) -> Void)?(article) }
     public func onLeadGenerated(email: String?) { (callback as? (String?) -> Void)?(email) }
+    public func onMessageRead(conversationId: Int, conversationMessageId: Int) { (callback as? (Int, Int) -> Void)?(conversationId, conversationMessageId) }
+    public func onMessengerInitialized() { (callback as? () -> Void)?() }
     public func onNewConversation(message: String, attachments: [AttachmentPayload]) { (callback as? (String, [AttachmentPayload]) -> Void)?(message, attachments) }
     public func onNewMessageReceived(accountId: Int?, message: String?, timestamp: TimeInterval, userId: Int?, conversationId: Int) {
         (callback as? (Int?, String?, TimeInterval, Int?, Int) -> Void)?(accountId, message, timestamp, userId, conversationId)

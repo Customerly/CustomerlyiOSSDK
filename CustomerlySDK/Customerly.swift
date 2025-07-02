@@ -125,6 +125,13 @@ public class Customerly: NSObject {
                 }));
                 };
                 
+                customerly.onMessageRead = function(conversationId, conversationMessageId) {
+                window.webkit.messageHandlers.customerlyNative.postMessage(JSON.stringify({
+                    type: "onMessageRead",
+                    data: {conversationId: conversationId, conversationMessageId: conversationMessageId}
+                }));
+                };
+                
                 customerly.onNewConversation = function(message, attachments) {
                 window.webkit.messageHandlers.customerlyNative.postMessage(JSON.stringify({
                     type: "onNewConversation",
@@ -495,6 +502,12 @@ public class Customerly: NSObject {
         registerCallback(type: "onLeadGenerated", callback: CallbackWrapper(callback))
     }
 
+    /// Sets a callback for when a message is read
+    /// - Parameter callback: The callback to handle the event
+    public func setOnMessageRead(_ callback: @escaping (Int, Int) -> Void) {
+        registerCallback(type: "onMessageRead", callback: CallbackWrapper(callback))
+    }
+
     /// Sets a callback for when the messenger is initialized
     /// - Parameter callback: The callback to handle the event
     public func setOnMessengerInitialized(_ callback: @escaping () -> Void) {
@@ -602,6 +615,11 @@ public class Customerly: NSObject {
     /// Removes the callback for when a lead is generated
     public func removeOnLeadGenerated() {
         removeCallback(type: "onLeadGenerated")
+    }
+
+    /// Removes the callback for when a message is read
+    public func removeOnMessageRead() {
+        removeCallback(type: "onMessageRead")
     }
 
     /// Removes the callback for when a new conversation is created
@@ -765,6 +783,12 @@ extension Customerly: WKScriptMessageHandler {
             case "onLeadGenerated":
                 let email = messageData?["email"] as? String
                 callbacks[type]?.onLeadGenerated(email: email)
+                
+            case "onMessageRead":
+                guard let data = messageData,
+                      let conversationId = data["conversationId"] as? Int,
+                      let conversationMessageId = data["conversationMessageId"] as? Int else { return }
+                callbacks[type]?.onMessageRead(conversationId: conversationId, conversationMessageId: conversationMessageId)
                 
             case "onMessengerInitialized":
                 callbacks[type]?.onMessengerInitialized()
