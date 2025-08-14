@@ -7,7 +7,7 @@ public protocol CustomerlyCallback {
     func onLeadGenerated(email: String?)
     func onMessageRead(conversationId: Int, conversationMessageId: Int)
     func onMessengerInitialized()
-    func onNewMessageReceived(accountId: Int?, message: String?, timestamp: TimeInterval, userId: Int?, conversationId: Int)
+    func onNewMessageReceived(unreadMessage: UnreadMessage)
     func onNewConversation(message: String, attachments: [AttachmentPayload])
     func onNewConversationReceived(conversationId: Int)
     func onProfilingQuestionAnswered(attribute: String, value: String)
@@ -28,7 +28,7 @@ public extension CustomerlyCallback {
     func onLeadGenerated(email: String?) {}
     func onMessageRead(conversationId: Int, conversationMessageId: Int) {}
     func onMessengerInitialized() {}
-    func onNewMessageReceived(accountId: Int?, message: String?, timestamp: TimeInterval, userId: Int?, conversationId: Int) {}
+    func onNewMessageReceived(unreadMessage: UnreadMessage) {}
     func onNewConversation(message: String, attachments: [AttachmentPayload]) {}
     func onNewConversationReceived(conversationId: Int) {}
     func onProfilingQuestionAnswered(attribute: String, value: String) {}
@@ -56,8 +56,8 @@ public class CallbackWrapper: CustomerlyCallback {
     public func onMessageRead(conversationId: Int, conversationMessageId: Int) { (callback as? (Int, Int) -> Void)?(conversationId, conversationMessageId) }
     public func onMessengerInitialized() { (callback as? () -> Void)?() }
     public func onNewConversation(message: String, attachments: [AttachmentPayload]) { (callback as? (String, [AttachmentPayload]) -> Void)?(message, attachments) }
-    public func onNewMessageReceived(accountId: Int?, message: String?, timestamp: TimeInterval, userId: Int?, conversationId: Int) {
-        (callback as? (Int?, String?, TimeInterval, Int?, Int) -> Void)?(accountId, message, timestamp, userId, conversationId)
+    public func onNewMessageReceived(unreadMessage: UnreadMessage) {
+        (callback as? (UnreadMessage) -> Void)?(unreadMessage)
     }
     public func onNewConversationReceived(conversationId: Int) { (callback as? (Int) -> Void)?(conversationId) }
     public func onProfilingQuestionAnswered(attribute: String, value: String) { (callback as? (String, String) -> Void)?(attribute, value) }

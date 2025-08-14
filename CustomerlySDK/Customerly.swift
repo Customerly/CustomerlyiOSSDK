@@ -522,7 +522,7 @@ public class Customerly: NSObject {
 
     /// Sets a callback for when a new message is received
     /// - Parameter callback: The callback to handle the event
-    public func setOnNewMessageReceived(_ callback: @escaping (Int?, String?, TimeInterval, Int?, Int) -> Void) {
+    public func setOnNewMessageReceived(_ callback: @escaping (UnreadMessage) -> Void) {
         registerCallback(type: "onNewMessageReceived", callback: CallbackWrapper(callback))
     }
 
@@ -810,38 +810,49 @@ extension Customerly: WKScriptMessageHandler {
                 
             case "onNewMessageReceived":
                 guard let data = messageData,
-                      let accountId = data["accountId"] as? Int,
-                      let message = data["message"] as? String,
-                      let timestamp = data["timestamp"] as? TimeInterval,
-                      let userId = data["userId"] as? Int,
                       let conversationId = data["conversationId"] as? Int else {
                     return
                 }
+                
+                // Create UnreadMessage object
+                let unreadMessage = UnreadMessage(
+                    accountId: data["accountId"] as? Int64,
+                    accountName: data["accountName"] as? String,
+                    message: data["message"] as? String,
+                    timestamp: Int64((data["timestamp"] as? TimeInterval) ?? 0),
+                    userId: data["userId"] as? Int64,
+                    conversationId: Int64(conversationId)
+                )
 
                 // Show system local notification
                 let content = UNMutableNotificationContent()
-                let abstractedMessage = abstractify(message)
-                content.title = abstractedMessage
+                let abstractedMessage = abstractify(unreadMessage.message ?? "")
+                
+                // Set title and message based on accountName availability
+                if let accountName = unreadMessage.accountName, !accountName.isEmpty {
+                    content.title = accountName
+                    content.body = abstractedMessage
+                } else {
+                    content.title = abstractedMessage
+                }
+                
                 content.sound = .default
                 content.userInfo = [
                     "conversationId": conversationId,
-                    "accountId": accountId,
-                    "userId": userId,
-                    "timestamp": timestamp,
-                    "message": message
+                    "accountId": unreadMessage.accountId ?? 0,
+                    "accountName": unreadMessage.accountName ?? "",
+                    "userId": unreadMessage.userId ?? 0,
+                    "timestamp": unreadMessage.timestamp,
+                    "message": unreadMessage.message ?? ""
                 ]
                 let request = UNNotificationRequest(
-                    identifier: "customerly_new_message_\(conversationId)_\(timestamp)",
+                    identifier: "customerly_new_message_\(conversationId)_\(unreadMessage.timestamp)",
                     content: content,
                     trigger: nil // deliver immediately
                 )
                 UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
 
-                callbacks[type]?.onNewMessageReceived(accountId: accountId,
-                                                   message: message,
-                                                   timestamp: timestamp,
-                                                   userId: userId,
-                                                   conversationId: conversationId)
+                callbacks[type]?.onNewMessageReceived(unreadMessage: unreadMessage)
                 
             case "onNewConversationReceived":
                 guard let data = messageData,
