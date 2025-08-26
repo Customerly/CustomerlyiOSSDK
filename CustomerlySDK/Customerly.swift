@@ -81,13 +81,34 @@ public class Customerly: NSObject {
         }
     }
 
+    private func getDeviceInfo() -> [String: Any] {
+        let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? 
+                     Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? 
+                     "Unknown App"
+        let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown Version"
+        let deviceName = UIDevice.current.name
+        let osVersion = UIDevice.current.systemVersion
+        
+        return [
+            "os": "ios",
+            "app_name": appName,
+            "app_version": appVersion,
+            "device": "Apple \(deviceName)",
+            "os_version": osVersion
+        ]
+    }
+
     private func loadMessengerHTML() {
         guard let settings = settings else {
             print("Customerly: Error - Settings not available")
             return
         }
 
-        let settingsJson = try? JSONSerialization.data(withJSONObject: settings.dictionary)
+        // Create a mutable copy of settings dictionary and add device info
+        var settingsWithDevice = settings.dictionary
+        settingsWithDevice["device"] = getDeviceInfo()
+
+        let settingsJson = try? JSONSerialization.data(withJSONObject: settingsWithDevice)
         let settingsString = String(data: settingsJson ?? Data(), encoding: .utf8) ?? "{}"
 
         let html = """
