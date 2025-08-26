@@ -313,6 +313,17 @@ To run the example:
 
 The sample app provides a complete reference implementation of all SDK features and can be used as a starting point for your integration.
 
+
+## Development
+
+To release a new version of the SDK, you need to:
+
+1. Update the version in the `Customerly.podspec` file
+2. Update the version in the `README.md` file
+3. Push the changes to the `main` branch
+4. Create a new tag with the version number (e.g. `1.0.0`). The tag must be in the format `v1.0.0`
+5. The GitHub Actions workflow will build the SDK and release it to CocoaPods
+
 ## License
 
 This SDK is licensed under the GNU GPLv3 License. See the LICENSE file for more details.
