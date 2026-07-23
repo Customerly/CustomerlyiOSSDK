@@ -338,7 +338,7 @@ The sample app provides a complete reference implementation of all SDK features 
 The version must stay in sync across **three** places:
 
 - `Customerly.podspec` (`s.version`)
-- `README.md` (the SPM `from: "x.y.z"` line above)
+- `README.md` (the Swift Package Manager version line above)
 - `CustomerlySDK/Customerly.swift` (`Customerly.version`)
 
 To release a new version of the SDK:

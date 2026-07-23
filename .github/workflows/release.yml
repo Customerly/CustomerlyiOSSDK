@@ -40,7 +40,7 @@ jobs:
         id: check_versions
         run: |
           PODSPEC_VERSION=$(grep "^[[:space:]]*s.version[[:space:]]*=" Customerly.podspec | sed -E 's/.*= *"([0-9]+\.[0-9]+\.[0-9]+)".*/\1/')
-          README_VERSION=$(grep "from:" README.md | sed -E 's/.*from: "([0-9]+\.[0-9]+\.[0-9]+)".*/\1/')
+          README_VERSION=$(grep -oE 'from: "[0-9]+\.[0-9]+\.[0-9]+"' README.md | head -1 | sed -E 's/.*"([0-9.]+)".*/\1/')
           SWIFT_VERSION=$(grep 'public static let version' CustomerlySDK/Customerly.swift | sed -E 's/.*"([0-9]+\.[0-9]+\.[0-9]+)".*/\1/')
 
           echo "Tag version: $VERSION"
