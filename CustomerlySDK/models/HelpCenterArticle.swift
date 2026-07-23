@@ -7,7 +7,11 @@ public struct HelpCenterArticle {
     public let slug: String
     public let title: String
     public let description: String
-    public let body: String
+    // The messenger types `onHelpCenterArticleOpened`'s payload as `HelpCenterArticle`, which does
+    // not include `body` (only `DetailedHelpCenterArticle` does). It happens to always send the
+    // detailed article today, but keeping this optional avoids silently dropping the callback if
+    // that ever changes.
+    public let body: String?
     public let sort: Int
     public let written_by: WrittenBy
     public let updated_at: TimeInterval
@@ -19,7 +23,7 @@ public struct HelpCenterArticle {
         slug: String,
         title: String,
         description: String,
-        body: String,
+        body: String? = nil,
         sort: Int,
         written_by: WrittenBy,
         updated_at: TimeInterval
@@ -43,7 +47,6 @@ public struct HelpCenterArticle {
               let slug = dict["slug"] as? String,
               let title = dict["title"] as? String,
               let description = dict["description"] as? String,
-              let body = dict["body"] as? String,
               let sort = dict["sort"] as? Int,
               let writtenBy = dict["written_by"] as? [String: Any],
               let updatedAt = dict["updated_at"] as? TimeInterval else {
@@ -56,25 +59,28 @@ public struct HelpCenterArticle {
         self.slug = slug
         self.title = title
         self.description = description
-        self.body = body
+        self.body = dict["body"] as? String
         self.sort = sort
         self.written_by = try WrittenBy(from: writtenBy)
         self.updated_at = updatedAt
     }
     
     var dictionary: [String: Any] {
-        return [
+        var dict: [String: Any] = [
             "knowledge_base_article_id": knowledge_base_article_id,
             "knowledge_base_collection_id": knowledge_base_collection_id,
             "app_id": app_id,
             "slug": slug,
             "title": title,
             "description": description,
-            "body": body,
             "sort": sort,
             "written_by": written_by.dictionary,
             "updated_at": updated_at
         ]
+        if let body = body {
+            dict["body"] = body
+        }
+        return dict
     }
 }
 

@@ -12,7 +12,15 @@ let package = Package(
     targets: [
         .target(
             name: "CustomerlySDK",
-            path: "CustomerlySDK"
+            path: "CustomerlySDK",
+            resources: [
+                .copy("PrivacyInfo.xcprivacy")
+            ]
+        ),
+        .testTarget(
+            name: "CustomerlyTests",
+            dependencies: ["CustomerlySDK"],
+            path: "Tests/CustomerlyTests"
         )
     ]
 )

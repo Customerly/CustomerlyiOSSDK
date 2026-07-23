@@ -1,10 +1,30 @@
 import UIKit
 @preconcurrency import WebKit
 import UserNotifications
+import os
 
+@MainActor
 public class Customerly: NSObject {
     /// Shared singleton instance
     public static let shared = Customerly()
+
+    /// The Customerly iOS SDK version. Kept in sync with `Customerly.podspec` and `README.md`.
+    public static let version = "1.1.0"
+
+    /// Enables verbose SDK logging. Off by default so the SDK stays silent in host apps' consoles.
+    public static var isLoggingEnabled: Bool = false
+
+    private static let logSubsystem = "io.customerly.sdk"
+
+    /// Routes SDK diagnostics through the unified logging system, gated by `isLoggingEnabled`.
+    static func log(_ message: String) {
+        guard isLoggingEnabled else { return }
+        if #available(iOS 14.0, *) {
+            Logger(subsystem: logSubsystem, category: "Customerly").notice("\(message, privacy: .public)")
+        } else {
+            NSLog("[Customerly] %@", message)
+        }
+    }
 
     private var webView: WKWebView?
     // Container view controller presenting the messenger
@@ -12,7 +32,7 @@ public class Customerly: NSObject {
     // Parent view controller for presenting the messenger
     private weak var parentViewController: UIViewController?
     private var settings: CustomerlySettings?
-    private var callbacks: [String: CustomerlyCallback] = [:]
+    private var callbacks = CustomerlyCallbacks()
     private var isPresenting: Bool = false
     private var webViewBottomConstraint: NSLayoutConstraint?
 
@@ -55,7 +75,7 @@ public class Customerly: NSObject {
         let wv = WKWebView(frame: .zero, configuration: config)
         wv.navigationDelegate = self
         wv.isHidden = true
-        wv.backgroundColor = .white
+        wv.backgroundColor = .systemBackground
         wv.isOpaque = false
         wv.scrollView.isScrollEnabled = false
         wv.scrollView.bounces = false
@@ -76,7 +96,7 @@ public class Customerly: NSObject {
     public func requestNotificationPermissionIfNeeded() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             if let error = error {
-                print("Customerly: Failed to request notification permission: \(error)")
+                Customerly.log("Failed to request notification permission: \(error)")
             }
         }
     }
@@ -94,13 +114,14 @@ public class Customerly: NSObject {
             "app_name": appName,
             "app_version": appVersion,
             "device": "Apple \(deviceName)",
-            "os_version": osVersion
+            "os_version": osVersion,
+            "sdk_version": Customerly.version
         ]
     }
 
     private func loadMessengerHTML() {
         guard let settings = settings else {
-            print("Customerly: Error - Settings not available")
+            Customerly.log("Error - Settings not available")
             return
         }
 
@@ -257,7 +278,7 @@ public class Customerly: NSObject {
 
     private func evaluateJavascript(_ script: String, resultCallback: ((Any?, Error?) -> Void)? = nil) {
         guard let webView = webView else {
-            print("Customerly: Error - WebView not loaded")
+            Customerly.log("Error - WebView not loaded")
             return
         }
 
@@ -266,34 +287,35 @@ public class Customerly: NSObject {
         }
     }
 
+
     /// Presents the messenger by showing the preloaded WebView
     /// - Parameters:
     ///   - withoutNavigation: Whether to navigate to messenger home page
     public func show(withoutNavigation: Bool = false) {
         guard let wv = webView else {
-            print("Customerly: Error - WebView not loaded")
+            Customerly.log("Error - WebView not loaded")
             assertionFailure("Messenger not loaded. Call load() first.")
             return
         }
         
         guard let parent = parentViewController else {
-            print("Customerly: Error - No parent view controller set")
+            Customerly.log("Error - No parent view controller set")
             assertionFailure("No parent view controller set. Call load() or setParent() first.")
             return
         }
 
         if self.controller != nil || self.isPresenting {
-            print("Customerly: Messenger is already presented or being presented.")
+            Customerly.log("Messenger is already presented or being presented.")
             return
         }
 
         self.isPresenting = true
 
         let containerVC = UIViewController()
-        containerVC.view.backgroundColor = .white
+        containerVC.view.backgroundColor = .systemBackground
 
         let containerView = UIView()
-        containerView.backgroundColor = .white
+        containerView.backgroundColor = .systemBackground
         containerView.translatesAutoresizingMaskIntoConstraints = false
         containerVC.view.addSubview(containerView)
 
@@ -375,7 +397,7 @@ public class Customerly: NSObject {
     /// Tracks an event with the given name
     /// - Parameter name: The name of the event to track
     public func event(name: String) {
-        evaluateJavascript("customerly.event('\(name)')")
+        evaluateJavascript("customerly.event(\(JSValue.literal(name)))")
     }
 
     /// Sets a user attribute
@@ -383,28 +405,13 @@ public class Customerly: NSObject {
     ///   - name: The name of the attribute
     ///   - value: The value of the attribute
     public func attribute(name: String, value: Any) {
-        let valueJson: String
-        switch value {
-        case let stringValue as String:
-            valueJson = "'\(stringValue)'"
-        case let numberValue as NSNumber:
-            valueJson = numberValue.stringValue
-        default:
-            let json = ["value": value]
-            if let jsonData = try? JSONSerialization.data(withJSONObject: json),
-               let jsonString = String(data: jsonData, encoding: .utf8) {
-                valueJson = jsonString
-            } else {
-                valueJson = "null"
-            }
-        }
-        
-        evaluateJavascript("customerly.attribute('\(name)', \(valueJson))")
+        evaluateJavascript("customerly.attribute(\(JSValue.literal(name)), \(JSValue.literal(value)))")
     }
 
     /// Updates the SDK settings
     /// - Parameter settings: The new settings to apply
     public func update(settings: CustomerlySettings) {
+        self.settings = settings
         if let settingsJson = try? JSONSerialization.data(withJSONObject: settings.dictionary),
            let settingsString = String(data: settingsJson, encoding: .utf8) {
             evaluateJavascript("customerly.update(\(settingsString))")
@@ -415,14 +422,14 @@ public class Customerly: NSObject {
     /// - Parameter message: The new message to prepopulate in the messenger
     public func showNewMessage(message: String) {
         show()
-        evaluateJavascript("customerly.showNewMessage('\(message)')")
+        evaluateJavascript("customerly.showNewMessage(\(JSValue.literal(message)))")
     }
 
     /// Sends a new message
     /// - Parameter message: The new message to send
     public func sendNewMessage(message: String) {
         show()
-        evaluateJavascript("customerly.sendNewMessage('\(message)')")
+        evaluateJavascript("customerly.sendNewMessage(\(JSValue.literal(message)))")
     }
 
     /// Shows a specific article
@@ -431,7 +438,7 @@ public class Customerly: NSObject {
     ///   - articleSlug: The article slug
     public func showArticle(collectionSlug: String, articleSlug: String) {
         show()
-        evaluateJavascript("customerly.showArticle('\(collectionSlug)', '\(articleSlug)')")
+        evaluateJavascript("customerly.showArticle(\(JSValue.literal(collectionSlug)), \(JSValue.literal(articleSlug)))")
     }
 
     /// Registers a new lead
@@ -439,16 +446,8 @@ public class Customerly: NSObject {
     ///   - email: The email of the lead
     ///   - attributes: Optional attributes for the lead
     public func registerLead(email: String, attributes: [String: String]? = nil) {
-        let attributesJson: String
-        if let attributes = attributes,
-           let jsonData = try? JSONSerialization.data(withJSONObject: attributes),
-           let jsonString = String(data: jsonData, encoding: .utf8) {
-            attributesJson = jsonString
-        } else {
-            attributesJson = "null"
-        }
-        
-        evaluateJavascript("customerly.registerLead('\(email)', \(attributesJson))")
+        let attributesJson = attributes.map { JSValue.literal($0) } ?? "null"
+        evaluateJavascript("customerly.registerLead(\(JSValue.literal(email)), \(attributesJson))")
     }
 
     /// Navigates back in the messenger
@@ -459,26 +458,23 @@ public class Customerly: NSObject {
     /// Navigates to a specific conversation
     /// - Parameter conversationId: The ID of the conversation to navigate to
     public func navigateToConversation(conversationId: Int) {
-        evaluateJavascript("_customerly_sdk.navigateToConversation(\(conversationId))")
+        // The messenger's `_customerly_sdk.navigateToConversation` expects a string argument.
+        evaluateJavascript("_customerly_sdk.navigateToConversation(\(JSValue.literal(String(conversationId))))")
     }
 
     /// Gets the count of unread messages
     /// - Parameter completion: Callback with the count of unread messages
     public func getUnreadMessagesCount(completion: @escaping (Int) -> Void) {
-        evaluateJavascript("customerly.unreadMessagesCount") { result, error in
-            if let count = result as? Int {
-                completion(count)
-            } else {
-                completion(0)
-            }
+        evaluateJavascript("customerly.unreadMessagesCount") { result, _ in
+            completion((result as? NSNumber)?.intValue ?? 0)
         }
     }
 
     /// Gets the count of unread conversations
     /// - Parameter completion: Callback with the count of unread conversations
     public func getUnreadConversationsCount(completion: @escaping (Int) -> Void) {
-        evaluateJavascript("customerly.unreadConversationsCount") { result, error in
-            if let count = result as? Int {
+        evaluateJavascript("customerly.unreadConversationsCount") { result, _ in
+            if let count = (result as? NSNumber)?.intValue {
                 completion(count)
             } else {
                 completion(0)
@@ -486,231 +482,202 @@ public class Customerly: NSObject {
         }
     }
 
-    /// Registers a callback for a specific event type
-    /// - Parameters:
-    ///   - type: The type of event to register for
-    ///   - callback: The callback to handle the event
-    private func registerCallback(type: String, callback: CustomerlyCallback) {
-        guard webView != nil else {
-            print("Customerly: Error - WebView not loaded")
-            return
-        }
-        
-        callbacks[type] = callback
-    }
-
     /// Sets a callback for when the chat is closed
     /// - Parameter callback: The callback to handle the event
     public func setOnChatClosed(_ callback: @escaping () -> Void) {
-        registerCallback(type: "onChatClosed", callback: CallbackWrapper(callback))
+        callbacks.onChatClosed = callback
     }
 
     /// Sets a callback for when the chat is opened
     /// - Parameter callback: The callback to handle the event
     public func setOnChatOpened(_ callback: @escaping () -> Void) {
-        registerCallback(type: "onChatOpened", callback: CallbackWrapper(callback))
+        callbacks.onChatOpened = callback
     }
 
     /// Sets a callback for when a help center article is opened
     /// - Parameter callback: The callback to handle the event
     public func setOnHelpCenterArticleOpened(_ callback: @escaping (HelpCenterArticle) -> Void) {
-        registerCallback(type: "onHelpCenterArticleOpened", callback: CallbackWrapper(callback))
+        callbacks.onHelpCenterArticleOpened = callback
     }
 
     /// Sets a callback for when a lead is generated
     /// - Parameter callback: The callback to handle the event
     public func setOnLeadGenerated(_ callback: @escaping (String?) -> Void) {
-        registerCallback(type: "onLeadGenerated", callback: CallbackWrapper(callback))
+        callbacks.onLeadGenerated = callback
     }
 
     /// Sets a callback for when a message is read
     /// - Parameter callback: The callback to handle the event
     public func setOnMessageRead(_ callback: @escaping (Int, Int) -> Void) {
-        registerCallback(type: "onMessageRead", callback: CallbackWrapper(callback))
+        callbacks.onMessageRead = callback
     }
 
     /// Sets a callback for when the messenger is initialized
     /// - Parameter callback: The callback to handle the event
     public func setOnMessengerInitialized(_ callback: @escaping () -> Void) {
-        registerCallback(type: "onMessengerInitialized", callback: CallbackWrapper(callback))
+        callbacks.onMessengerInitialized = callback
     }
 
     /// Sets a callback for when a new conversation is created
     /// - Parameter callback: The callback to handle the event
     public func setOnNewConversation(_ callback: @escaping (String, [AttachmentPayload]) -> Void) {
-        registerCallback(type: "onNewConversation", callback: CallbackWrapper(callback))
+        callbacks.onNewConversation = callback
     }
 
     /// Sets a callback for when a new message is received
     /// - Parameter callback: The callback to handle the event
     public func setOnNewMessageReceived(_ callback: @escaping (UnreadMessage) -> Void) {
-        registerCallback(type: "onNewMessageReceived", callback: CallbackWrapper(callback))
+        callbacks.onNewMessageReceived = callback
     }
 
     /// Sets a callback for when a new conversation is received
     /// - Parameter callback: The callback to handle the event
     public func setOnNewConversationReceived(_ callback: @escaping (Int) -> Void) {
-        registerCallback(type: "onNewConversationReceived", callback: CallbackWrapper(callback))
+        callbacks.onNewConversationReceived = callback
     }
 
     /// Sets a callback for when a profiling question is answered
     /// - Parameter callback: The callback to handle the event
     public func setOnProfilingQuestionAnswered(_ callback: @escaping (String, String) -> Void) {
-        registerCallback(type: "onProfilingQuestionAnswered", callback: CallbackWrapper(callback))
+        callbacks.onProfilingQuestionAnswered = callback
     }
 
     /// Sets a callback for when a profiling question is asked
     /// - Parameter callback: The callback to handle the event
     public func setOnProfilingQuestionAsked(_ callback: @escaping (String) -> Void) {
-        registerCallback(type: "onProfilingQuestionAsked", callback: CallbackWrapper(callback))
+        callbacks.onProfilingQuestionAsked = callback
     }
 
     /// Sets a callback for when a realtime video call is answered
     /// - Parameter callback: The callback to handle the event
     public func setOnRealtimeVideoAnswered(_ callback: @escaping (RealtimeCall) -> Void) {
-        registerCallback(type: "onRealtimeVideoAnswered", callback: CallbackWrapper(callback))
+        callbacks.onRealtimeVideoAnswered = callback
     }
 
     /// Sets a callback for when a realtime video call is canceled
     /// - Parameter callback: The callback to handle the event
     public func setOnRealtimeVideoCanceled(_ callback: @escaping () -> Void) {
-        registerCallback(type: "onRealtimeVideoCanceled", callback: CallbackWrapper(callback))
+        callbacks.onRealtimeVideoCanceled = callback
     }
 
     /// Sets a callback for when a realtime video call is received
     /// - Parameter callback: The callback to handle the event
     public func setOnRealtimeVideoReceived(_ callback: @escaping (RealtimeCall) -> Void) {
-        registerCallback(type: "onRealtimeVideoReceived", callback: CallbackWrapper(callback))
+        callbacks.onRealtimeVideoReceived = callback
     }
 
     /// Sets a callback for when a realtime video call is rejected
     /// - Parameter callback: The callback to handle the event
     public func setOnRealtimeVideoRejected(_ callback: @escaping () -> Void) {
-        registerCallback(type: "onRealtimeVideoRejected", callback: CallbackWrapper(callback))
+        callbacks.onRealtimeVideoRejected = callback
     }
 
     /// Sets a callback for when a survey is answered
     /// - Parameter callback: The callback to handle the event
     public func setOnSurveyAnswered(_ callback: @escaping () -> Void) {
-        registerCallback(type: "onSurveyAnswered", callback: CallbackWrapper(callback))
+        callbacks.onSurveyAnswered = callback
     }
 
     /// Sets a callback for when a survey is presented
     /// - Parameter callback: The callback to handle the event
     public func setOnSurveyPresented(_ callback: @escaping (Survey) -> Void) {
-        registerCallback(type: "onSurveyPresented", callback: CallbackWrapper(callback))
+        callbacks.onSurveyPresented = callback
     }
 
     /// Sets a callback for when a survey is rejected
     /// - Parameter callback: The callback to handle the event
     public func setOnSurveyRejected(_ callback: @escaping () -> Void) {
-        registerCallback(type: "onSurveyRejected", callback: CallbackWrapper(callback))
-    }
-
-    /// Removes a callback for a specific event type
-    /// - Parameter type: The type of event to remove the callback for
-    private func removeCallback(type: String) {
-        guard webView != nil else {
-            print("Customerly: Error - WebView not loaded")
-            return
-        }
-        
-        callbacks.removeValue(forKey: type)
+        callbacks.onSurveyRejected = callback
     }
 
     /// Removes the callback for when the chat is closed
     public func removeOnChatClosed() {
-        removeCallback(type: "onChatClosed")
+        callbacks.onChatClosed = nil
     }
 
     /// Removes the callback for when the chat is opened
     public func removeOnChatOpened() {
-        removeCallback(type: "onChatOpened")
+        callbacks.onChatOpened = nil
     }
 
     /// Removes the callback for when a help center article is opened
     public func removeOnHelpCenterArticleOpened() {
-        removeCallback(type: "onHelpCenterArticleOpened")
+        callbacks.onHelpCenterArticleOpened = nil
     }
 
     /// Removes the callback for when a lead is generated
     public func removeOnLeadGenerated() {
-        removeCallback(type: "onLeadGenerated")
+        callbacks.onLeadGenerated = nil
     }
 
     /// Removes the callback for when a message is read
     public func removeOnMessageRead() {
-        removeCallback(type: "onMessageRead")
+        callbacks.onMessageRead = nil
     }
 
     /// Removes the callback for when a new conversation is created
     public func removeOnNewConversation() {
-        removeCallback(type: "onNewConversation")
+        callbacks.onNewConversation = nil
     }
 
     /// Removes the callback for when a new message is received
     public func removeOnNewMessageReceived() {
-        removeCallback(type: "onNewMessageReceived")
+        callbacks.onNewMessageReceived = nil
     }
 
     /// Removes the callback for when a new conversation is received
     public func removeOnNewConversationReceived() {
-        removeCallback(type: "onNewConversationReceived")
+        callbacks.onNewConversationReceived = nil
     }
 
     /// Removes the callback for when a profiling question is answered
     public func removeOnProfilingQuestionAnswered() {
-        removeCallback(type: "onProfilingQuestionAnswered")
+        callbacks.onProfilingQuestionAnswered = nil
     }
 
     /// Removes the callback for when a profiling question is asked
     public func removeOnProfilingQuestionAsked() {
-        removeCallback(type: "onProfilingQuestionAsked")
+        callbacks.onProfilingQuestionAsked = nil
     }
 
     /// Removes the callback for when a realtime video call is answered
     public func removeOnRealtimeVideoAnswered() {
-        removeCallback(type: "onRealtimeVideoAnswered")
+        callbacks.onRealtimeVideoAnswered = nil
     }
 
     /// Removes the callback for when a realtime video call is canceled
     public func removeOnRealtimeVideoCanceled() {
-        removeCallback(type: "onRealtimeVideoCanceled")
+        callbacks.onRealtimeVideoCanceled = nil
     }
 
     /// Removes the callback for when a realtime video call is received
     public func removeOnRealtimeVideoReceived() {
-        removeCallback(type: "onRealtimeVideoReceived")
+        callbacks.onRealtimeVideoReceived = nil
     }
 
     /// Removes the callback for when a realtime video call is rejected
     public func removeOnRealtimeVideoRejected() {
-        removeCallback(type: "onRealtimeVideoRejected")
+        callbacks.onRealtimeVideoRejected = nil
     }
 
     /// Removes the callback for when a survey is answered
     public func removeOnSurveyAnswered() {
-        removeCallback(type: "onSurveyAnswered")
+        callbacks.onSurveyAnswered = nil
     }
 
     /// Removes the callback for when a survey is presented
     public func removeOnSurveyPresented() {
-        removeCallback(type: "onSurveyPresented")
+        callbacks.onSurveyPresented = nil
     }
 
     /// Removes the callback for when a survey is rejected
     public func removeOnSurveyRejected() {
-        removeCallback(type: "onSurveyRejected")
+        callbacks.onSurveyRejected = nil
     }
 
     /// Removes all registered callbacks
     public func removeAllCallbacks() {
-        guard webView != nil else {
-            print("Customerly: Error - WebView not loaded")
-            return
-        }
-        
-        callbacks.removeAll()
+        callbacks = CustomerlyCallbacks()
     }
 
     private func abstractify(_ html: String?) -> String {
@@ -782,7 +749,7 @@ extension Customerly: WKScriptMessageHandler {
             guard let data = messageBody.data(using: .utf8),
                   let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let type = json["type"] as? String else {
-                print("Customerly: Error - Invalid message format")
+                Customerly.log("Error - Invalid message format")
                 return
             }
 
@@ -791,28 +758,28 @@ extension Customerly: WKScriptMessageHandler {
             switch type {
             case "onChatClosed":
                 hide()
-                callbacks[type]?.onChatClosed()
+                callbacks.onChatClosed?()
                 
             case "onChatOpened":
-                callbacks[type]?.onChatOpened()
+                callbacks.onChatOpened?()
                 
             case "onHelpCenterArticleOpened":
                 guard let data = messageData,
                       let article = try? HelpCenterArticle(from: data) else { return }
-                callbacks[type]?.onHelpCenterArticleOpened(article: article)
+                callbacks.onHelpCenterArticleOpened?(article)
                 
             case "onLeadGenerated":
                 let email = messageData?["email"] as? String
-                callbacks[type]?.onLeadGenerated(email: email)
+                callbacks.onLeadGenerated?(email)
                 
             case "onMessageRead":
                 guard let data = messageData,
                       let conversationId = data["conversationId"] as? Int,
                       let conversationMessageId = data["conversationMessageId"] as? Int else { return }
-                callbacks[type]?.onMessageRead(conversationId: conversationId, conversationMessageId: conversationMessageId)
+                callbacks.onMessageRead?(conversationId, conversationMessageId)
                 
             case "onMessengerInitialized":
-                callbacks[type]?.onMessengerInitialized()
+                callbacks.onMessengerInitialized?()
                 
             case "onNewConversation":
                 guard let data = messageData,
@@ -827,7 +794,7 @@ extension Customerly: WKScriptMessageHandler {
                     return AttachmentPayload(name: name, size: size, base64: base64)
                 } ?? []
                 
-                callbacks[type]?.onNewConversation(message: message, attachments: attachments)
+                callbacks.onNewConversation?(message, attachments)
                 
             case "onNewMessageReceived":
                 guard let data = messageData,
@@ -845,101 +812,104 @@ extension Customerly: WKScriptMessageHandler {
                     conversationId: Int64(conversationId)
                 )
 
-                // Show system local notification
-                let content = UNMutableNotificationContent()
-                let abstractedMessage = abstractify(unreadMessage.message ?? "")
-                
-                // Set title and message based on accountName availability
-                if let accountName = unreadMessage.accountName, !accountName.isEmpty {
-                    content.title = accountName
-                    content.body = abstractedMessage
-                } else {
-                    content.title = abstractedMessage
-                }
-                
-                content.sound = .default
-                content.userInfo = [
-                    "conversationId": conversationId,
-                    "accountId": unreadMessage.accountId ?? 0,
-                    "accountName": unreadMessage.accountName ?? "",
-                    "userId": unreadMessage.userId ?? 0,
-                    "timestamp": unreadMessage.timestamp,
-                    "message": unreadMessage.message ?? ""
-                ]
-                let request = UNNotificationRequest(
-                    identifier: "customerly_new_message_\(conversationId)_\(unreadMessage.timestamp)",
-                    content: content,
-                    trigger: nil // deliver immediately
-                )
-                UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
+                // Only surface a local notification when the messenger isn't already on screen —
+                // otherwise the user would get a redundant banner for a chat they're actively viewing.
+                if controller == nil {
+                    let content = UNMutableNotificationContent()
+                    let abstractedMessage = abstractify(unreadMessage.message ?? "")
 
-                callbacks[type]?.onNewMessageReceived(unreadMessage: unreadMessage)
+                    // Set title and message based on accountName availability
+                    if let accountName = unreadMessage.accountName, !accountName.isEmpty {
+                        content.title = accountName
+                        content.body = abstractedMessage
+                    } else {
+                        content.title = abstractedMessage
+                    }
+
+                    content.sound = .default
+                    content.userInfo = [
+                        "conversationId": conversationId,
+                        "accountId": unreadMessage.accountId ?? 0,
+                        "accountName": unreadMessage.accountName ?? "",
+                        "userId": unreadMessage.userId ?? 0,
+                        "timestamp": unreadMessage.timestamp,
+                        "message": unreadMessage.message ?? ""
+                    ]
+                    let request = UNNotificationRequest(
+                        identifier: "customerly_new_message_\(conversationId)_\(unreadMessage.timestamp)",
+                        content: content,
+                        trigger: nil // deliver immediately
+                    )
+                    UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
+                }
+
+                callbacks.onNewMessageReceived?(unreadMessage)
                 
             case "onNewConversationReceived":
                 guard let data = messageData,
                       let conversationId = data["conversationId"] as? Int else { return }
-                callbacks[type]?.onNewConversationReceived(conversationId: conversationId)
+                callbacks.onNewConversationReceived?(conversationId)
                 
             case "onProfilingQuestionAnswered":
                 guard let data = messageData,
                       let attribute = data["attribute"] as? String,
                       let value = data["value"] as? String else { return }
-                callbacks[type]?.onProfilingQuestionAnswered(attribute: attribute, value: value)
+                callbacks.onProfilingQuestionAnswered?(attribute, value)
                 
             case "onProfilingQuestionAsked":
                 guard let data = messageData,
                       let attribute = data["attribute"] as? String else { return }
-                callbacks[type]?.onProfilingQuestionAsked(attribute: attribute)
+                callbacks.onProfilingQuestionAsked?(attribute)
                 
             case "onRealtimeVideoAnswered":
                 guard let data = messageData,
                       let call = try? RealtimeCall(from: data) else { return }
-                callbacks[type]?.onRealtimeVideoAnswered(call: call)
+                callbacks.onRealtimeVideoAnswered?(call)
                 
             case "onRealtimeVideoCanceled":
-                callbacks[type]?.onRealtimeVideoCanceled()
+                callbacks.onRealtimeVideoCanceled?()
                 
             case "onRealtimeVideoReceived":
-                show()
                 guard let data = messageData,
                       let call = try? RealtimeCall(from: data) else { return }
-                callbacks[type]?.onRealtimeVideoReceived(call: call)
+                show()
+                callbacks.onRealtimeVideoReceived?(call)
                 
             case "onRealtimeVideoRejected":
-                callbacks[type]?.onRealtimeVideoRejected()
+                callbacks.onRealtimeVideoRejected?()
                 
             case "onSurveyAnswered":
-                callbacks[type]?.onSurveyAnswered()
+                callbacks.onSurveyAnswered?()
                 
             case "onSurveyPresented":
-                show(withoutNavigation: true)
                 guard let data = messageData,
                       let survey = try? Survey(from: data) else { return }
-                callbacks[type]?.onSurveyPresented(survey: survey)
+                show(withoutNavigation: true)
+                callbacks.onSurveyPresented?(survey)
                 
             case "onSurveyRejected":
-                callbacks[type]?.onSurveyRejected()
+                callbacks.onSurveyRejected?()
                 
             default:
-                print("Customerly: Unhandled message type: \(type)")
+                Customerly.log("Unhandled message type: \(type)")
             }
         } catch {
-            print("Customerly: Error processing message: \(messageBody)", error)
+            Customerly.log("Error processing message: \(messageBody) - \(error)")
         }
     }
 }
 
 extension Customerly: WKNavigationDelegate {
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        print("Customerly: WebView finished loading")
+        Customerly.log("WebView finished loading")
     }
 
     public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        print("Customerly: WebView error: \(error)")
+        Customerly.log("WebView error: \(error)")
     }
 
     public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        print("Customerly: WebView provisional navigation failed: \(error)")
+        Customerly.log("WebView provisional navigation failed: \(error)")
     }
     
     public func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {

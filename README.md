@@ -26,7 +26,7 @@ Add the following dependency to your `Package.swift` file:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/customerly/CustomerlyiOSSDK.git", from: "1.0.5")
+    .package(url: "https://github.com/customerly/CustomerlyiOSSDK.git", from: "1.1.0")
 ]
 ```
 
@@ -47,12 +47,14 @@ pod install
 ## Basic Usage
 
 ### `CustomerlyView`
+
 A SwiftUI view that integrates the Customerly messenger into your app. It initializes the SDK with the settings provided and attaches the SDK to the SwiftUI view hierarchy.
 
 > **Important**: The SDK requires two initialization steps to work properly:
+>
 > 1. Calling `load(settings:)` to initialize the SDK
 > 2. Providing a parent view controller either via `load(settings:parent:)` or `setParent(_:)`
-> 
+>
 > When using `CustomerlyView`, both requirements are automatically handled for you. If you're not using `CustomerlyView`, you must handle these requirements manually.
 
 ```swift
@@ -121,6 +123,7 @@ struct SampleAppApp: App {
 ### Initialization and Configuration
 
 #### load
+
 Initializes the Customerly SDK with the provided settings.
 
 ```swift
@@ -128,6 +131,7 @@ Customerly.shared.load(settings: CustomerlySettings(app_id: "YOUR_APP_ID"), pare
 ```
 
 #### setParent
+
 Sets a new parent view controller for presenting the messenger.
 
 ```swift
@@ -135,6 +139,7 @@ Customerly.shared.setParent(self)
 ```
 
 #### update
+
 Updates the Customerly SDK settings.
 
 ```swift
@@ -142,6 +147,7 @@ Customerly.shared.update(settings: CustomerlySettings(app_id: "YOUR_APP_ID"))
 ```
 
 #### requestNotificationPermissionIfNeeded
+
 Requests notification permissions if not already granted.
 
 ```swift
@@ -151,6 +157,7 @@ Customerly.shared.requestNotificationPermissionIfNeeded()
 ### Messenger Control
 
 #### show
+
 Shows the Customerly chat interface.
 
 ```swift
@@ -158,6 +165,7 @@ Customerly.shared.show(withoutNavigation: false)
 ```
 
 #### hide
+
 Hides the Customerly chat interface.
 
 ```swift
@@ -165,6 +173,7 @@ Customerly.shared.hide()
 ```
 
 #### back
+
 Navigates back in the chat interface.
 
 ```swift
@@ -174,6 +183,7 @@ Customerly.shared.back()
 ### User Management
 
 #### logout
+
 Logs out the current user.
 
 ```swift
@@ -181,6 +191,7 @@ Customerly.shared.logout()
 ```
 
 #### registerLead
+
 Registers a new lead with the provided email and optional attributes.
 
 ```swift
@@ -190,6 +201,7 @@ Customerly.shared.registerLead(email: "test@example.com", attributes: ["name": "
 ### Messaging
 
 #### showNewMessage
+
 Shows the chat interface with a pre-filled message.
 
 ```swift
@@ -197,6 +209,7 @@ Customerly.shared.showNewMessage(message: "Hello, how can I help you?")
 ```
 
 #### sendNewMessage
+
 Sends a new message and shows the chat interface.
 
 ```swift
@@ -204,6 +217,7 @@ Customerly.shared.sendNewMessage(message: "Hello, how can I help you?")
 ```
 
 #### navigateToConversation
+
 Navigates to a specific conversation.
 
 ```swift
@@ -213,6 +227,7 @@ Customerly.shared.navigateToConversation(conversationId: 123)
 ### Help Center
 
 #### showArticle
+
 Shows a specific help center article.
 
 ```swift
@@ -222,6 +237,7 @@ Customerly.shared.showArticle(collectionSlug: "collection", articleSlug: "articl
 ### Analytics
 
 #### event
+
 Tracks a custom event.
 
 ```swift
@@ -229,6 +245,7 @@ Customerly.shared.event(name: "event_name")
 ```
 
 #### attribute
+
 Sets a custom attribute for the current user.
 
 ```swift
@@ -238,6 +255,7 @@ Customerly.shared.attribute(name: "attribute_name", value: "attribute_value")
 ### Message Counts
 
 #### getUnreadMessagesCount
+
 Gets the count of unread messages.
 
 ```swift
@@ -247,6 +265,7 @@ Customerly.shared.getUnreadMessagesCount(completion: { count in
 ```
 
 #### getUnreadConversationsCount
+
 Gets the count of unread conversations.
 
 ```swift
@@ -307,22 +326,30 @@ The repository includes a sample project (`SampleApp`) that demonstrates how to 
 - Callback usage
 
 To run the example:
+
 1. Open the project in Xcode
 2. Replace the `app_id` in `SampleAppApp.swift` with your Customerly app ID
 3. Build and run the project
 
 The sample app provides a complete reference implementation of all SDK features and can be used as a starting point for your integration.
 
-
 ## Development
 
-To release a new version of the SDK, you need to:
+The version must stay in sync across **three** places:
 
-1. Update the version in the `Customerly.podspec` file
-2. Update the version in the `README.md` file
-3. Push the changes to the `main` branch
-4. Create a new tag with the version number (e.g. `1.0.0`). The tag must be in the format `v1.0.0`
-5. The GitHub Actions workflow will build the SDK and release it to CocoaPods
+- `Customerly.podspec` (`s.version`)
+- `README.md` (the SPM `from: "x.y.z"` line above)
+- `CustomerlySDK/Customerly.swift` (`Customerly.version`)
+
+To release a new version of the SDK:
+
+1. Bump the version in all three files above.
+2. Push the changes to the default branch (`master`).
+3. Create and push a tag matching the version **without** a `v` prefix (e.g. `1.0.6`); the
+   release workflow triggers on tags of the form `*.*.*`.
+4. The GitHub Actions workflow verifies the tag, podspec, README and Swift versions match
+   (auto-committing a fix and re-tagging if they don't), then pushes the pod to CocoaPods trunk.
+   SPM consumers just resolve the git tag — no publish step.
 
 ## License
 

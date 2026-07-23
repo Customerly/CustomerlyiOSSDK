@@ -1,0 +1,29 @@
+# SwiftLint configuration for the Customerly iOS SDK.
+# Run locally with: swiftlint  (install via `brew install swiftlint`)
+
+included:
+  - CustomerlySDK
+
+excluded:
+  - Tests
+  - SampleApp
+  - .build
+
+disabled_rules:
+  # The injected launcher HTML/JS is one intentionally long line.
+  - line_length
+  # Public model properties use snake_case to mirror the Customerly JSON/JS API
+  # (app_id, user_id, account_id, ...). Renaming them would break the wire contract.
+  - identifier_name
+  - type_name
+  - todo
+
+opt_in_rules:
+  - empty_count
+  - closure_spacing
+  - contains_over_first_not_nil
+  - first_where
+  - redundant_nil_coalescing
+  - unused_import
+
+analyzer_rules: []

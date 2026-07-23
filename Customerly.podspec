@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name         = "Customerly"
-  s.version      = "1.0.5"
+  s.version      = "1.1.0"
   s.summary      = "SDK for integrating Customerly in iOS apps"
   s.description  = <<-DESC
     This SDK allows iOS apps to easily integrate Customerly's support chat widget using a native wrapper.
@@ -13,4 +13,8 @@ Pod::Spec.new do |s|
   s.platform     = :ios, "13.0"
   s.source_files = "CustomerlySDK/**/*.swift"
   s.swift_version = "5.6"
+
+  s.resource_bundles = {
+    "Customerly" => ["CustomerlySDK/PrivacyInfo.xcprivacy"]
+  }
 end
