@@ -15,7 +15,7 @@ public struct HelpCenterArticle {
     public let sort: Int
     public let written_by: WrittenBy
     public let updated_at: TimeInterval
-    
+
     public init(
         knowledge_base_article_id: Int64,
         knowledge_base_collection_id: Int64,
@@ -39,7 +39,7 @@ public struct HelpCenterArticle {
         self.written_by = written_by
         self.updated_at = updated_at
     }
-    
+
     public init(from dict: [String: Any]) throws {
         guard let knowledgeBaseArticleId = dict["knowledge_base_article_id"] as? Int64,
               let knowledgeBaseCollectionId = dict["knowledge_base_collection_id"] as? Int64,
@@ -52,7 +52,7 @@ public struct HelpCenterArticle {
               let updatedAt = dict["updated_at"] as? TimeInterval else {
             throw NSError(domain: "Customerly", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid HelpCenterArticle data"])
         }
-        
+
         self.knowledge_base_article_id = knowledgeBaseArticleId
         self.knowledge_base_collection_id = knowledgeBaseCollectionId
         self.app_id = appId
@@ -64,7 +64,7 @@ public struct HelpCenterArticle {
         self.written_by = try WrittenBy(from: writtenBy)
         self.updated_at = updatedAt
     }
-    
+
     var dictionary: [String: Any] {
         var dict: [String: Any] = [
             "knowledge_base_article_id": knowledge_base_article_id,
@@ -88,24 +88,24 @@ public struct WrittenBy {
     public let account_id: Int64
     public let email: String?
     public let name: String
-    
+
     public init(account_id: Int64, email: String?, name: String) {
         self.account_id = account_id
         self.email = email
         self.name = name
     }
-    
+
     public init(from dict: [String: Any]) throws {
         guard let accountId = dict["account_id"] as? Int64,
               let name = dict["name"] as? String else {
             throw NSError(domain: "Customerly", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid WrittenBy data"])
         }
-        
+
         self.account_id = accountId
         self.email = dict["email"] as? String
         self.name = name
     }
-    
+
     var dictionary: [String: Any] {
         var dict: [String: Any] = [
             "account_id": account_id,

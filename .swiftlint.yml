@@ -1,5 +1,6 @@
 # SwiftLint configuration for the Customerly iOS SDK.
 # Run locally with: swiftlint  (install via `brew install swiftlint`)
+# Auto-fix formatting with: swiftlint --fix
 
 included:
   - CustomerlySDK
@@ -17,6 +18,14 @@ disabled_rules:
   - identifier_name
   - type_name
   - todo
+  # Size/complexity rules that fight this SDK's shape by design: Customerly is a single
+  # bridge class with a large `userContentController` message-dispatch switch, an inline
+  # HTML/JS template in `loadMessengerHTML`, and ~36 near-identical public setOn*/removeOn*
+  # methods. Splitting these to satisfy the rules would hurt clarity, not help it.
+  - cyclomatic_complexity
+  - function_body_length
+  - type_body_length
+  - file_length
 
 opt_in_rules:
   - empty_count
@@ -24,6 +33,5 @@ opt_in_rules:
   - contains_over_first_not_nil
   - first_where
   - redundant_nil_coalescing
-  - unused_import
 
 analyzer_rules: []

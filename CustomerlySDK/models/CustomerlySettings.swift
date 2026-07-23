@@ -15,7 +15,7 @@ public struct CustomerlySettings {
     public var attributes: [String: Any]?
     public var company: Company?
     public var events: [Event]?
-    
+
     public init(
         app_id: String,
         user_id: String? = nil,
@@ -47,14 +47,14 @@ public struct CustomerlySettings {
         self.company = company
         self.events = events
     }
-    
+
     var dictionary: [String: Any] {
         var dict: [String: Any] = [
             "app_id": app_id,
             "sdkMode": true,
             "disableAutofocus": true
         ]
-        
+
         user_id.map { dict["user_id"] = $0 }
         name.map { dict["name"] = $0 }
         email.map { dict["email"] = $0 }
@@ -68,7 +68,7 @@ public struct CustomerlySettings {
         attributes.map { dict["attributes"] = $0 }
         company.map { dict["company"] = $0.dictionary }
         events.map { dict["events"] = $0.map { $0.dictionary } }
-        
+
         return dict
     }
 }
@@ -77,21 +77,21 @@ public struct Company {
     public let company_id: String
     public let name: String
     public var additionalAttributes: [String: Any]
-    
+
     public init(company_id: String, name: String, additionalAttributes: [String: Any] = [:]) {
         self.company_id = company_id
         self.name = name
         self.additionalAttributes = additionalAttributes
     }
-    
+
     var dictionary: [String: Any] {
         var dict: [String: Any] = [
             "company_id": company_id,
             "name": name
         ]
-        
+
         additionalAttributes.forEach { dict[$0.key] = $0.value }
-        
+
         return dict
     }
 }
@@ -99,12 +99,12 @@ public struct Company {
 public struct Event {
     public let name: String
     public var date: Date?
-    
+
     public init(name: String, date: Date? = nil) {
         self.name = name
         self.date = date
     }
-    
+
     var dictionary: [String: Any] {
         var dict: [String: Any] = ["name": name]
         date.map { dict["date"] = $0.timeIntervalSince1970 }

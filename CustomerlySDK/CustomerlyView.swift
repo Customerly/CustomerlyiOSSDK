@@ -20,4 +20,4 @@ public struct CustomerlyView: UIViewControllerRepresentable {
     public func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
         // No updates needed
     }
-} 
+}
