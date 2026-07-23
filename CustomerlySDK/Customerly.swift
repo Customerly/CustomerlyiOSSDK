@@ -12,12 +12,13 @@ public class Customerly: NSObject {
     public static let version = "1.1.0"
 
     /// Enables verbose SDK logging. Off by default so the SDK stays silent in host apps' consoles.
-    public static var isLoggingEnabled: Bool = false
+    nonisolated(unsafe) public static var isLoggingEnabled: Bool = false
 
-    private static let logSubsystem = "io.customerly.sdk"
+    nonisolated private static let logSubsystem = "io.customerly.sdk"
 
     /// Routes SDK diagnostics through the unified logging system, gated by `isLoggingEnabled`.
-    static func log(_ message: String) {
+    /// `nonisolated` so it can be called from any context (e.g. background completion handlers).
+    nonisolated static func log(_ message: String) {
         guard isLoggingEnabled else { return }
         if #available(iOS 14.0, *) {
             Logger(subsystem: logSubsystem, category: "Customerly").notice("\(message, privacy: .public)")
