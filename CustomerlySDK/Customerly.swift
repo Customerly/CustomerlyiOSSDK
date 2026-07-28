@@ -9,7 +9,7 @@ public class Customerly: NSObject {
     public static let shared = Customerly()
 
     /// The Customerly iOS SDK version. Kept in sync with `Customerly.podspec` and `README.md`.
-    public static let version = "1.1.0"
+    public static let version = "1.1.1"
 
     /// Enables verbose SDK logging. Off by default so the SDK stays silent in host apps' consoles.
     nonisolated(unsafe) public static var isLoggingEnabled: Bool = false
