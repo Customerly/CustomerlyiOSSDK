@@ -36,6 +36,12 @@ public class Customerly: NSObject {
     private var callbacks = CustomerlyCallbacks()
     private var isPresenting: Bool = false
     private var webViewBottomConstraint: NSLayoutConstraint?
+    // The view the WebView is laid out in, used to measure the keyboard overlap while presented
+    private weak var webViewContainer: UIView?
+    private var scrollOffsetObservation: NSKeyValueObservation?
+    // The keyboard's last known end frame, in screen coordinates. Kept so the overlap can be
+    // recomputed when the container's geometry changes under a keyboard that hasn't moved.
+    private var lastKeyboardFrameInScreen: CGRect?
 
     private override init() {
         super.init()
@@ -48,9 +54,8 @@ public class Customerly: NSObject {
     }
 
     deinit {
+        // Removes every observation registered for this object, keyboard notifications included.
         NotificationCenter.default.removeObserver(self)
-        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillShowNotification, object: nil)
-        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
     }
 
     @objc private func applicationWillTerminate() {
@@ -80,6 +85,7 @@ public class Customerly: NSObject {
         wv.isOpaque = false
         wv.scrollView.isScrollEnabled = false
         wv.scrollView.bounces = false
+        pinScrollOffset(of: wv.scrollView)
 
         self.webView = wv
 
@@ -136,7 +142,14 @@ public class Customerly: NSObject {
         let html = """
         <!DOCTYPE html>
         <html>
-          <head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <!-- The messenger renders as a position:fixed, full-viewport layer, so the host document
+                 itself must never scroll. Without this the UA's default body margin leaves the page
+                 marginally scrollable, which is room WebKit uses to displace the content when the
+                 keyboard opens. -->
+            <style>html,body{margin:0;padding:0;height:100%;overflow:hidden;}</style>
+          </head>
           <body>
             <script>
                 !function(){var e=window,i=document,t="customerly",n="queue",o="load",r="settings",u=e[t]=e[t]||[];if(u.t){return void u.i("[customerly] SDK already initialized. Snippet included twice.")}u.t=!0;u.loaded=!1;u.o=["event","attribute","update","show","hide","open","close"];u[n]=[];u.i=function(t){e.console&&!u.debug&&console.error&&console.error(t)};u.u=function(e){return function(){var t=Array.prototype.slice.call(arguments);return t.unshift(e),u[n].push(t),u}};u[o]=function(t){u[r]=t||{};if(u.loaded){return void u.i("[customerly] SDK already loaded. Use `customerly.update` to change settings.")}u.loaded=!0;var e=i.createElement("script");e.type="text/javascript",e.async=!0,e.src="https://messenger.customerly.io/launcher.js";var n=i.getElementsByTagName("script")[0];n.parentNode.insertBefore(e,n)};u.o.forEach(function(t){u[t]=u.u(t)})}();
@@ -314,9 +327,12 @@ public class Customerly: NSObject {
         let containerVC = UIViewController()
         containerVC.view.backgroundColor = .systemBackground
 
-        let containerView = UIView()
+        let containerView = MessengerContainerView()
         containerView.backgroundColor = .systemBackground
         containerView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.onSafeAreaInsetsChange = { [weak self] in
+            self?.reapplyKeyboardInset()
+        }
         containerVC.view.addSubview(containerView)
 
         NSLayoutConstraint.activate([
@@ -350,9 +366,10 @@ public class Customerly: NSObject {
         }
 
         wv.isHidden = false
+        self.webViewContainer = containerView
 
         // Register for keyboard notifications
-        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(_:)), name: UIResponder.keyboardWillShowNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillChangeFrame(_:)), name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
 
         self.evaluateJavascript("customerly.open()")
@@ -376,9 +393,14 @@ public class Customerly: NSObject {
         self.controller = nil
         self.webView?.isHidden = true
         self.isPresenting = false
+        self.webViewContainer = nil
+        // The constraint dies with the dismissed container; clear it so a stale keyboard inset
+        // can't be carried into the next presentation.
+        self.webViewBottomConstraint = nil
+        self.lastKeyboardFrameInScreen = nil
 
         // Remove keyboard observers
-        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillShowNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
         NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
     }
 
@@ -712,30 +734,107 @@ public class Customerly: NSObject {
         }
     }
 
-    @objc private func keyboardWillShow(_ notification: Notification) {
+    /// Keeps the WebView's own scroll view parked at the origin.
+    ///
+    /// When a text field is focused, WebKit scrolls the WebView's scroll view to lift the caret
+    /// clear of the keyboard. The SDK already resizes the WebView for the keyboard, so that second
+    /// compensation stacks on the first and pushes the messenger — a `position: fixed` full-viewport
+    /// layout — off the top of the screen. `isScrollEnabled = false` only blocks user panning;
+    /// WebKit still sets `contentOffset` programmatically, and with scrolling disabled the user has
+    /// no way to bring the content back. Resetting the offset cancels only WebKit's displacement:
+    /// the messenger's own message list scrolls inside the DOM, not here.
+    private func pinScrollOffset(of scrollView: UIScrollView) {
+        // The write below re-enters this observer; the flag keeps that to a single hop rather than
+        // relying on WebKit not answering our reset with another scroll.
+        var isResetting = false
+        scrollOffsetObservation = scrollView.observe(\.contentOffset, options: [.new]) { scrollView, _ in
+            // The resting offset is the negated adjusted inset, not the origin: forcing `.zero`
+            // would shift the content up by whatever inset WebKit applied and then fight it.
+            let resting = CGPoint(x: -scrollView.adjustedContentInset.left,
+                                  y: -scrollView.adjustedContentInset.top)
+            guard !isResetting, scrollView.contentOffset != resting else { return }
+            isResetting = true
+            scrollView.contentOffset = resting
+            isResetting = false
+        }
+    }
+
+    /// Resizes the WebView so the keyboard never covers the messenger's composer.
+    ///
+    /// Handles show, hide and every frame change in between (emoji keyboard, hardware keyboard,
+    /// predictive bar appearing) from a single notification.
+    @objc private func keyboardWillChangeFrame(_ notification: Notification) {
         guard let userInfo = notification.userInfo,
-              let keyboardFrame = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
-              let duration = userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double,
-              let curve = userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt else { return }
+              let keyboardFrame = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
 
-        let keyboardHeight = keyboardFrame.height
-        self.webViewBottomConstraint?.constant = -keyboardHeight
-
-        UIView.animate(withDuration: duration, delay: 0, options: UIView.AnimationOptions(rawValue: curve << 16), animations: {
-            self.controller?.view.layoutIfNeeded()
-        }, completion: nil)
+        lastKeyboardFrameInScreen = keyboardFrame
+        applyKeyboardInset(screenFrame: keyboardFrame, userInfo: userInfo)
     }
 
     @objc private func keyboardWillHide(_ notification: Notification) {
-        guard let userInfo = notification.userInfo,
-              let duration = userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double,
-              let curve = userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt else { return }
+        lastKeyboardFrameInScreen = nil
+        setWebViewBottomInset(0, userInfo: notification.userInfo ?? [:])
+    }
 
-        self.webViewBottomConstraint?.constant = 0
+    /// Recomputes the keyboard inset against the container's current geometry.
+    ///
+    /// The overlap is measured against the safe-area bottom edge, which the notification handler
+    /// samples *before* UIKit lays out for the keyboard. If the container's safe-area insets then
+    /// change — because the keyboard docking altered them, or on rotation — the applied inset would
+    /// be stale by exactly that difference, so it is recomputed from the last known keyboard frame.
+    private func reapplyKeyboardInset() {
+        guard let keyboardFrame = lastKeyboardFrameInScreen else { return }
+        applyKeyboardInset(screenFrame: keyboardFrame, userInfo: [:])
+    }
+
+    private func applyKeyboardInset(screenFrame: CGRect, userInfo: [AnyHashable: Any]) {
+        guard let container = webViewContainer, let window = container.window else { return }
+
+        // The notification reports the keyboard in screen coordinates. Convert it into the
+        // container's space so a partially-covering or off-screen keyboard measures correctly.
+        let frameInWindow = window.convert(screenFrame, from: nil)
+        let frameInContainer = container.convert(frameInWindow, from: window)
+
+        let inset = KeyboardLayout.bottomInset(keyboardFrame: frameInContainer,
+                                               containerBounds: container.bounds,
+                                               safeAreaBottomInset: container.safeAreaInsets.bottom)
+        setWebViewBottomInset(inset, userInfo: userInfo)
+    }
+
+    private func setWebViewBottomInset(_ inset: CGFloat, userInfo: [AnyHashable: Any]) {
+        guard let constraint = webViewBottomConstraint, constraint.constant != -inset else { return }
+        constraint.constant = -inset
+
+        // Lay out via the container rather than `controller`, which is only assigned once the
+        // presentation animation finishes — the keyboard can arrive before that.
+        guard let container = webViewContainer else { return }
+
+        // No animation metadata: schedule the pass instead of forcing one, since this path is also
+        // reached from `safeAreaInsetsDidChange`, i.e. from inside a layout pass already underway.
+        guard let duration = userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double,
+              let curve = userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt else {
+            container.setNeedsLayout()
+            return
+        }
 
         UIView.animate(withDuration: duration, delay: 0, options: UIView.AnimationOptions(rawValue: curve << 16), animations: {
-            self.controller?.view.layoutIfNeeded()
+            container.layoutIfNeeded()
         }, completion: nil)
+    }
+}
+
+/// The view the messenger WebView is laid out in.
+///
+/// A plain `UIView` apart from reporting its own safe-area changes. The keyboard inset is measured
+/// against this view's safe-area bottom edge, so it has to be recomputed whenever that edge moves —
+/// and the hook belongs here rather than on the view controller, whose
+/// `viewSafeAreaInsetsDidChange` can run before the value has propagated down to this subview.
+private final class MessengerContainerView: UIView {
+    var onSafeAreaInsetsChange: (() -> Void)?
+
+    override func safeAreaInsetsDidChange() {
+        super.safeAreaInsetsDidChange()
+        onSafeAreaInsetsChange?()
     }
 }
 
