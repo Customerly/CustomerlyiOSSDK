@@ -6,7 +6,7 @@ Pod::Spec.new do |s|
     This SDK allows iOS apps to easily integrate Customerly's support chat widget using a native wrapper.
   DESC
   s.homepage     = "https://github.com/customerly/CustomerlyiOSSDK"
-  s.license      = { :type => "GNU General Public License v3.0", :file => "LICENSE" }
+  s.license      = { :type => "Apache-2.0", :file => "LICENSE" }
   s.author       = { "Customerly" => "developers@customerly.io" }
   s.source       = { :git => "https://github.com/customerly/CustomerlyiOSSDK.git", :tag => s.version.to_s }
 
