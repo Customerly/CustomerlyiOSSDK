@@ -40,6 +40,22 @@ final class ModelDecodingTests: XCTestCase {
         XCTAssertThrowsError(try UnreadMessage(from: ["timestamp": Int64(0)]))
     }
 
+    func testMessengerLoadFailureDecodeAndRoundTrip() {
+        let failure = MessengerLoadFailure(from: ["status": 401, "message": "Unauthorized"])
+        XCTAssertEqual(failure.status, 401)
+        XCTAssertEqual(failure.message, "Unauthorized")
+
+        let rebuilt = MessengerLoadFailure(from: failure.dictionary)
+        XCTAssertEqual(rebuilt.status, failure.status)
+        XCTAssertEqual(rebuilt.message, failure.message)
+    }
+
+    func testMessengerLoadFailureWithoutStatusOnNetworkError() {
+        let failure = MessengerLoadFailure(from: [:])
+        XCTAssertNil(failure.status)
+        XCTAssertNil(failure.message)
+    }
+
     func testSurveyDecodesNestedQuestionAndChoices() throws {
         let dict: [String: Any] = [
             "survey_id": Int64(5),

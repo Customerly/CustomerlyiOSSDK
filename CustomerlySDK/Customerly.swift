@@ -68,6 +68,11 @@ public class Customerly: NSObject {
     ///   - parent: The view controller from which to present the messenger modally
     public func load(settings: CustomerlySettings, parent: UIViewController? = nil) {
         guard webView == nil else {
+            // The webview is reused, but a new parent must still be honoured: the previous one is held
+            // weakly and may be gone (e.g. a `CustomerlyView` recreated by SwiftUI), leaving `show()` with none.
+            if let parent = parent {
+                self.parentViewController = parent
+            }
             return
         }
 
@@ -157,6 +162,13 @@ public class Customerly: NSObject {
                 // Register callbacks
                 customerly.onMessengerInitialized = function() {
                 window.webkit.messageHandlers.customerlyNative.postMessage(JSON.stringify({type: "onMessengerInitialized"}));
+                };
+
+                customerly.onMessengerLoadFailed = function(failure) {
+                window.webkit.messageHandlers.customerlyNative.postMessage(JSON.stringify({
+                    type: "onMessengerLoadFailed",
+                    data: failure
+                }));
                 };
 
                 customerly.onChatClosed = function() {
@@ -540,6 +552,12 @@ public class Customerly: NSObject {
         callbacks.onMessengerInitialized = callback
     }
 
+    /// Sets a callback for when the messenger fails to load (e.g. identity verification rejects the user)
+    /// - Parameter callback: The callback to handle the event
+    public func setOnMessengerLoadFailed(_ callback: @escaping (MessengerLoadFailure) -> Void) {
+        callbacks.onMessengerLoadFailed = callback
+    }
+
     /// Sets a callback for when a new conversation is created
     /// - Parameter callback: The callback to handle the event
     public func setOnNewConversation(_ callback: @escaping (String, [AttachmentPayload]) -> Void) {
@@ -635,6 +653,16 @@ public class Customerly: NSObject {
     /// Removes the callback for when a message is read
     public func removeOnMessageRead() {
         callbacks.onMessageRead = nil
+    }
+
+    /// Removes the callback for when the messenger is initialized
+    public func removeOnMessengerInitialized() {
+        callbacks.onMessengerInitialized = nil
+    }
+
+    /// Removes the callback for when the messenger fails to load
+    public func removeOnMessengerLoadFailed() {
+        callbacks.onMessengerLoadFailed = nil
     }
 
     /// Removes the callback for when a new conversation is created
@@ -881,6 +909,9 @@ extension Customerly: WKScriptMessageHandler {
 
             case "onMessengerInitialized":
                 callbacks.onMessengerInitialized?()
+
+            case "onMessengerLoadFailed":
+                callbacks.onMessengerLoadFailed?(MessengerLoadFailure(from: messageData ?? [:]))
 
             case "onNewConversation":
                 guard let data = messageData,

@@ -113,6 +113,9 @@ struct SampleAppApp: App {
                 
                 CustomerlyView(settings: CustomerlySettings(app_id: "YOUR_APP_ID")).onAppear(){
                     Customerly.shared.requestNotificationPermissionIfNeeded()
+                    Customerly.shared.setOnMessengerLoadFailed { failure in
+                        print("Messenger failed to load: \(failure.status.map(String.init) ?? "network error") \(failure.message ?? "")")
+                    }
                     Customerly.shared.setOnMessengerInitialized {
                         Customerly.shared.getUnreadMessagesCount { count in
                             DispatchQueue.main.async {

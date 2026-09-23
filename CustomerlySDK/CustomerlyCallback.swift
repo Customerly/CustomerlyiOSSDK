@@ -12,6 +12,7 @@ struct CustomerlyCallbacks {
     var onLeadGenerated: ((String?) -> Void)?
     var onMessageRead: ((Int, Int) -> Void)?
     var onMessengerInitialized: (() -> Void)?
+    var onMessengerLoadFailed: ((MessengerLoadFailure) -> Void)?
     var onNewConversation: ((String, [AttachmentPayload]) -> Void)?
     var onNewMessageReceived: ((UnreadMessage) -> Void)?
     var onNewConversationReceived: ((Int) -> Void)?

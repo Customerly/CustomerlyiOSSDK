@@ -285,6 +285,7 @@ func setOnHelpCenterArticleOpened(_ callback: @escaping (HelpCenterArticle) -> V
 func setOnLeadGenerated(_ callback: @escaping (String?) -> Void)
 func setOnMessageRead(_ callback: @escaping (Int, Int) -> Void)
 func setOnMessengerInitialized(_ callback: @escaping () -> Void)
+func setOnMessengerLoadFailed(_ callback: @escaping (MessengerLoadFailure) -> Void)
 func setOnNewConversation(_ callback: @escaping (String, [AttachmentPayload]) -> Void)
 func setOnNewMessageReceived(_ callback: @escaping (UnreadMessage) -> Void)
 func setOnNewConversationReceived(_ callback: @escaping (Int) -> Void)
