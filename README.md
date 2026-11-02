@@ -5,7 +5,6 @@
 # Customerly iOS SDK
 
 [![SPM compatible](https://img.shields.io/badge/SPM-compatible-brightgreen.svg)]()
-[![CocoaPods](https://img.shields.io/cocoapods/v/Customerly.svg)]()
 ![GitHub License](https://img.shields.io/github/license/Customerly/CustomerlyiOSSDK)
 
 Customerly is a customer service platform that helps businesses provide better support to their customers. The iOS SDK allows you to integrate Customerly's features directly into your iOS application, including:
@@ -20,22 +19,30 @@ Customerly is a customer service platform that helps businesses provide better s
 
 ## Installation
 
-### Swift Package Manager
+### Swift Package Manager (recommended)
 
-Add the following dependency to your `Package.swift` file:
+In Xcode, choose **File → Add Package Dependencies…** and enter `https://github.com/customerly/CustomerlyiOSSDK.git`.
+
+Or add the dependency to your `Package.swift` file:
 
 ```swift
 dependencies: [
     .package(url: "https://github.com/customerly/CustomerlyiOSSDK.git", from: "1.3.0")
+],
+targets: [
+    .target(
+        name: "YourApp",
+        dependencies: [.product(name: "Customerly", package: "CustomerlyiOSSDK")]
+    )
 ]
 ```
 
 ### CocoaPods
 
-Add the following line to your Podfile:
+CocoaPods Trunk became read-only in December 2026, so `pod 'Customerly'` only installs versions up to 1.3.0. For newer versions, point your Podfile at the git tag:
 
 ```ruby
-pod 'Customerly'
+pod 'Customerly', :git => 'https://github.com/customerly/CustomerlyiOSSDK.git', :tag => '1.3.0'
 ```
 
 Then run:
@@ -339,7 +346,7 @@ The sample app provides a complete reference implementation of all SDK features 
 The version must stay in sync across **three** places:
 
 - `Customerly.podspec` (`s.version`)
-- `README.md` (the Swift Package Manager version line above)
+- `README.md` (the Swift Package Manager `from:` line and the CocoaPods `:tag =>` line above)
 - `CustomerlySDK/Customerly.swift` (`Customerly.version`)
 
 To release a new version of the SDK:
@@ -349,8 +356,9 @@ To release a new version of the SDK:
 3. Create and push a tag matching the version **without** a `v` prefix (e.g. `1.0.6`); the
    release workflow triggers on tags of the form `*.*.*`.
 4. The GitHub Actions workflow verifies the tag, podspec, README and Swift versions match
-   (auto-committing a fix and re-tagging if they don't), then pushes the pod to CocoaPods trunk.
-   SPM consumers just resolve the git tag — no publish step.
+   (auto-committing a fix and re-tagging if they don't), then creates a GitHub Release.
+   SPM and CocoaPods consumers resolve the git tag directly — nothing is pushed to CocoaPods Trunk,
+   which is read-only.
 
 ## License
 

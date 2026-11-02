@@ -6,6 +6,9 @@ on:
       - '*.*.*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: macos-latest
@@ -14,17 +17,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-          bundler-cache: true
-
-      - name: Install dependencies
-        run: |
-          gem install cocoapods
-          gem install cocoapods-trunk
 
       - name: Extract version from tag
         id: get_version
@@ -41,14 +33,16 @@ jobs:
         run: |
           PODSPEC_VERSION=$(grep "^[[:space:]]*s.version[[:space:]]*=" Customerly.podspec | sed -E 's/.*= *"([0-9]+\.[0-9]+\.[0-9]+)".*/\1/')
           README_VERSION=$(grep -oE 'from: "[0-9]+\.[0-9]+\.[0-9]+"' README.md | head -1 | sed -E 's/.*"([0-9.]+)".*/\1/')
+          POD_TAG_VERSION=$(grep -oE ":tag => '[0-9]+\.[0-9]+\.[0-9]+'" README.md | head -1 | sed -E "s/.*'([0-9.]+)'.*/\1/")
           SWIFT_VERSION=$(grep 'public static let version' CustomerlySDK/Customerly.swift | sed -E 's/.*"([0-9]+\.[0-9]+\.[0-9]+)".*/\1/')
 
           echo "Tag version: $VERSION"
           echo "Podspec version: $PODSPEC_VERSION"
           echo "README version: $README_VERSION"
+          echo "README CocoaPods tag version: $POD_TAG_VERSION"
           echo "Swift constant version: $SWIFT_VERSION"
 
-          if [ "$PODSPEC_VERSION" != "$VERSION" ] || [ "$README_VERSION" != "$VERSION" ] || [ "$SWIFT_VERSION" != "$VERSION" ]; then
+          if [ "$PODSPEC_VERSION" != "$VERSION" ] || [ "$README_VERSION" != "$VERSION" ] || [ "$POD_TAG_VERSION" != "$VERSION" ] || [ "$SWIFT_VERSION" != "$VERSION" ]; then
             echo "versions_mismatch=true" >> $GITHUB_OUTPUT
             echo "podspec_version=$PODSPEC_VERSION" >> $GITHUB_OUTPUT
             echo "readme_version=$README_VERSION" >> $GITHUB_OUTPUT
@@ -68,6 +62,7 @@ jobs:
           
           # Update README
           sed -i '' "s/from: \"[0-9]*\.[0-9]*\.[0-9]*\"/from: \"$VERSION\"/" README.md
+          sed -i '' "s/:tag => '[0-9]*\.[0-9]*\.[0-9]*'/:tag => '$VERSION'/" README.md
 
           # Update the Swift version constant
           sed -i '' "s/public static let version = \"[0-9]*\.[0-9]*\.[0-9]*\"/public static let version = \"$VERSION\"/" CustomerlySDK/Customerly.swift
@@ -88,25 +83,15 @@ jobs:
           echo "Versions updated and tag moved. Please run the workflow manually."
           exit 1
 
-      - name: Release pod
+      # SPM consumers resolve the git tag directly; the GitHub Release adds release notes.
+      # CocoaPods Trunk is read-only since Dec 2026, so new versions are no longer pushed there.
+      - name: Create GitHub release
         if: steps.check_versions.outputs.versions_mismatch == 'false'
         env:
-          COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          # Trunk often fails after publishing (its call to the GitHub commit API times out):
-          # trust the trunk API over the exit code.
-          if pod trunk push Customerly.podspec --allow-warnings; then
-            exit 0
+          if gh release view "$VERSION" > /dev/null 2>&1; then
+            echo "Release $VERSION already exists."
+          else
+            gh release create "$VERSION" --verify-tag --generate-notes --title "$VERSION"
           fi
-
-          for _ in 1 2 3 4 5 6; do
-            if curl -fsS https://trunk.cocoapods.org/api/v1/pods/Customerly \
-              | jq -e --arg version "$VERSION" '.versions | any(.name == $version)' > /dev/null; then
-              echo "::warning::pod trunk push failed, but Customerly $VERSION is published on trunk."
-              exit 0
-            fi
-            sleep 10
-          done
-
-          echo "::error::Customerly $VERSION is not published on trunk."
-          exit 1

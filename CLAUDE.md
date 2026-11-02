@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-The **Customerly iOS SDK** — a native wrapper that embeds the Customerly web messenger (live chat, help center, surveys, lead gen, realtime video) into iOS apps. It ships via both **Swift Package Manager** and **CocoaPods**.
+The **Customerly iOS SDK** — a native wrapper that embeds the Customerly web messenger (live chat, help center, surveys, lead gen, realtime video) into iOS apps. It ships via **Swift Package Manager** (primary) and **CocoaPods** (via `:git`/`:tag` only — CocoaPods Trunk is read-only since Dec 2026, so new versions are never pushed there).
 
 - Min deployment target: **iOS 13**, Swift **5.6**.
 - Distributed as source (`source_files = "CustomerlySDK/**/*.swift"`); there is no compiled framework artifact.
@@ -54,13 +54,13 @@ CI (`.github/workflows/ci.yml`) runs the build, the tests, and SwiftLint on ever
 
 `SampleApp/` (`SampleAppApp.swift`) is the reference integration exercising every feature. To run it, open the project in Xcode and set a real `app_id`.
 
-## Releasing (CocoaPods + SPM)
+## Releasing
 
-Version lives in **three places that must stay in sync**: `Customerly.podspec` (`s.version`), `README.md` (the SPM `from: "x.y.z"` line), and `CustomerlySDK/Customerly.swift` (`Customerly.version`, sent to the backend as `sdk_version`). Release is tag-driven via `.github/workflows/release.yml`:
+Version lives in **three places that must stay in sync**: `Customerly.podspec` (`s.version`), `README.md` (the SPM `from: "x.y.z"` line and the CocoaPods `:tag => 'x.y.z'` line), and `CustomerlySDK/Customerly.swift` (`Customerly.version`, sent to the backend as `sdk_version`). Release is tag-driven via `.github/workflows/release.yml`:
 
 1. Bump the version in `Customerly.podspec`, `README.md`, **and** `CustomerlySDK/Customerly.swift`.
 2. Push to the default branch.
 3. Create and push a tag matching the version (workflow triggers on `*.*.*`).
-4. CI checks that the tag, podspec, and README versions match (auto-committing a fix to the default branch if they don't) and pushes the pod to CocoaPods trunk.
+4. CI checks that the tag, podspec, and README versions match (auto-committing a fix to the default branch if they don't) and creates a GitHub Release. Nothing is pushed to CocoaPods Trunk.
 
-SPM consumers just resolve the git tag — no publish step.
+SPM and CocoaPods (`:git`) consumers just resolve the git tag — no publish step.
